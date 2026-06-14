@@ -1,0 +1,18 @@
+#fastapi
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+*.sqlite3
+
+# vue.js
+node_modules/
+dist/
+.env
+.env.local
+
+# common
+.DS_Store
+.idea
