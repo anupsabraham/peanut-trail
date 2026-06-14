@@ -1,6 +1,6 @@
-from datetime import date, timedelta
+from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
