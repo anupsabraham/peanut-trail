@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import UTC, date, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import extract, func
@@ -6,19 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Transaction
-from app.schemas import ChartDataset, DashboardCategoryRow, CategoryExpenseResponse, ProgressionChartResponse
+from app.schemas import CategoryExpenseResponse, ChartDataset, DashboardCategoryRow, ProgressionChartResponse
 from app.utils import compute_trend, days_in_month
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
+DB = Annotated[Session, Depends(get_db)]
 
-@router.get("/expenses/by-category/current-month", response_model=CategoryExpenseResponse)
-def get_current_month_expenses(db: Session = Depends(get_db)):
-    """
-    Get the current month's category-wise expenses
-    :param db:
-    :return:
-    """
-    today = date.today()
+
+@router.get("/expenses/by-category/current-month")
+def get_current_month_expenses(db: DB) -> CategoryExpenseResponse:
+    """Get the current month's category-wise expenses."""
+    today = datetime.now(tz=UTC).date()
 
     # Category summary for current month
     cat_rows = (
@@ -27,7 +26,7 @@ def get_current_month_expenses(db: Session = Depends(get_db)):
             func.sum(Transaction.debit_amount).label("total_amount"),
         )
         .filter(
-            Transaction.exclude == False,
+            Transaction.exclude == False,  # noqa: E712
             extract("year", Transaction.actual_date) == today.year,
             extract("month", Transaction.actual_date) == today.month,
         )
@@ -48,13 +47,12 @@ def get_current_month_expenses(db: Session = Depends(get_db)):
     )
 
 
-@router.get("/chart/progression/current-month", response_model=ProgressionChartResponse)
-def get_current_month_progression(db: Session = Depends(get_db)):
-    """
-    Get the current month's expense progression chart along with the previous 2 months'.
-    Create a trend line for the current month based on the progression.
-    :param db:
-    :return:
+@router.get("/chart/progression/current-month")
+def get_current_month_progression(db: DB) -> ProgressionChartResponse:
+    """Get the current month progression for the chart.
+
+    Get the current month's expense progression chart along with the previous 2 months'. Also create a trend line
+    for the current month based on the progression.
     """
 
     def _get_month_cumulative(db: Session, year: int, month: int, today: date) -> list:
@@ -68,7 +66,7 @@ def get_current_month_progression(db: Session = Depends(get_db)):
             .filter(
                 extract("year", Transaction.actual_date) == year,
                 extract("month", Transaction.actual_date) == month,
-                Transaction.exclude == False,
+                Transaction.exclude == False,  # noqa: E712
             )
             .group_by(extract("day", Transaction.actual_date))
             .order_by(extract("day", Transaction.actual_date))
@@ -90,7 +88,7 @@ def get_current_month_progression(db: Session = Depends(get_db)):
                 data.append(None)
         return data
 
-    today = date.today()
+    today = datetime.now(tz=UTC).date()
 
     current_month_data = _get_month_cumulative(db, today.year, today.month, today)
     days_in_current = days_in_month(today.year, today.month)
@@ -133,7 +131,7 @@ def get_current_month_progression(db: Session = Depends(get_db)):
                 borderColor=colors[i - 1],
                 borderWidth=1,
                 borderDash=[2, 1],
-            )
+            ),
         )
 
     return ProgressionChartResponse(

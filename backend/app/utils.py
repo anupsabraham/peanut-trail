@@ -1,14 +1,15 @@
+import calendar
 import math
-from datetime import date, timedelta
 
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Optional
+from sqlalchemy.orm import Session
 
-from app.models import Transaction
+from app.config import settings
+from app.models import Transaction, Vendor
 
 
-def compute_trend(data_points: list[Optional[float]], days_in_month: int) -> list[Optional[float]]:
+def compute_trend(data_points: list[float | None], days_in_month: int) -> list[float | None]:
+    """Get trend of the current month based on existing datapoints. This data can be used to chart the trendline."""
     x_points = []
     y_points = []
     for i, val in enumerate(data_points):
@@ -20,7 +21,7 @@ def compute_trend(data_points: list[Optional[float]], days_in_month: int) -> lis
     if n > 1:
         sum_x = sum(x_points)
         sum_y = sum(y_points)
-        sum_xy = sum(x * y for x, y in zip(x_points, y_points))
+        sum_xy = sum(x * y for x, y in zip(x_points, y_points, strict=True))
         sum_xx = sum(x * x for x in x_points)
         denominator = n * sum_xx - sum_x**2
         if denominator != 0:
@@ -44,29 +45,39 @@ def compute_trend(data_points: list[Optional[float]], days_in_month: int) -> lis
 
     return trend
 
+
 def days_in_month(year: int, month: int) -> int:
-    if month == 12:
-        return (date(year + 1, 1, 1) - timedelta(days=1)).day
-    return (date(year, month + 1, 1) - timedelta(days=1)).day
+    """Get the number of days in a specific month."""
+    return calendar.monthrange(year, month)[1]
 
 
 def get_confidence_score(count: int, total: int) -> float:
+    """Get a confidence score for the percentage of the number of transactions."""
     if total == 0:
         return 0.0
     z = 1
     p = count / total
-    numerator = p + z**2 / (2 * total) - z * math.sqrt(
-        (p * (1 - p) + z**2 / (4 * total)) / total
+    numerator = (
+        p
+        + z**2 / (2 * total)
+        - z
+        * math.sqrt(
+            (p * (1 - p) + z**2 / (4 * total)) / total,
+        )
     )
     denominator = 1 + z**2 / total
     return numerator / denominator * 100
 
 
-def get_category_suggestions(db: Session, vendor) -> tuple[dict, dict]:
+def get_category_suggestions(db: Session, vendor: Vendor) -> tuple[dict, dict]:
+    """Get 2 category-subcategory suggestions based on previous transactions for the same vendor."""
     if not vendor:
         empty = {
-            "category": None, "sub_category": None, "notes": None,
-            "confidence": 0.0, "auto_prefill": False,
+            "category": None,
+            "sub_category": None,
+            "notes": None,
+            "confidence": 0.0,
+            "auto_prefill": False,
         }
         return empty, {**empty}
 
@@ -89,7 +100,7 @@ def get_category_suggestions(db: Session, vendor) -> tuple[dict, dict]:
 
     total_count = sum(r.count for r in rows)
 
-    def make_suggestion(row) -> dict:
+    def make_suggestion(row: Transaction) -> dict:
         return {
             "category": row.category,
             "sub_category": row.sub_category,
@@ -99,14 +110,17 @@ def get_category_suggestions(db: Session, vendor) -> tuple[dict, dict]:
         }
 
     empty = {
-        "category": None, "sub_category": None, "notes": None,
-        "confidence": 0.0, "auto_prefill": False,
+        "category": None,
+        "sub_category": None,
+        "notes": None,
+        "confidence": 0.0,
+        "auto_prefill": False,
     }
 
     suggestion1 = make_suggestion(rows[0]) if len(rows) > 0 else {**empty}
     suggestion2 = make_suggestion(rows[1]) if len(rows) > 1 else {**empty}
 
-    if suggestion1["confidence"] > 25:
+    if suggestion1["confidence"] > settings.min_category_suggestion_confidence:
         suggestion1["auto_prefill"] = True
 
     return suggestion1, suggestion2

@@ -1,7 +1,7 @@
-from .vendor import Vendor
 from .transaction import Transaction
+from .vendor import Vendor
 
 __all__ = [
-    "Vendor",
     "Transaction",
+    "Vendor",
 ]

@@ -1,64 +1,34 @@
-from datetime import date
-from decimal import Decimal
+from typing import Annotated
 
-from fastapi import APIRouter, Query, Depends
-from typing import Optional
-from sqlalchemy import or_
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
-from app.schemas import TransactionListResponse, TransactionOut, SuggestionOut
 from app.database import get_db
-from app.models import Transaction, Vendor
+from app.models import Transaction
+from app.schemas import SuggestionOut, TransactionFilters, TransactionListResponse, TransactionOut
+from app.services.transactions import apply_transaction_filters
 from app.utils import get_category_suggestions
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
-@router.get("", response_model=TransactionListResponse)
-def list_transactions(
-    page: int = Query(1, ge=1),
-    category: str = Query(""),
-    vendor: str = Query(""),
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
-    search: str = Query(""),
-    min_amount: Optional[Decimal] = Query(None),
-    max_amount: Optional[Decimal] = Query(None),
-    exclude_filter: str = Query(""),
-    db: Session = Depends(get_db),
-):
-    qs = db.query(Transaction).options(joinedload(Transaction.vendor)).order_by(Transaction.actual_date.desc())
+DB = Annotated[Session, Depends(get_db)]
+Filters = Annotated[TransactionFilters, Depends()]
 
-    if category:
-        qs = qs.filter(Transaction.category.ilike(f"%{category}%"))
-    if vendor:
-        qs = qs.join(Transaction.vendor).filter(Vendor.name.ilike(f"%{vendor}%"))
-    if start_date:
-        qs = qs.filter(Transaction.actual_date >= start_date)
-    if end_date:
-        qs = qs.filter(Transaction.actual_date <= end_date)
-    if search:
-        qs = qs.filter(
-            or_(
-                Transaction.category.ilike(f"%{search}%"),
-                Transaction.sub_category.ilike(f"%{search}%"),
-                Transaction.narration.ilike(f"%{search}%"),
-                Transaction.notes.ilike(f"%{search}%"),
-                Transaction.vendor.has(Vendor.name.ilike(f"%{search}%")),
-            )
-        )
-    if min_amount is not None:
-        qs = qs.filter(Transaction.debit_amount >= min_amount)
-    if max_amount is not None:
-        qs = qs.filter(Transaction.debit_amount <= max_amount)
-    if exclude_filter.lower() == "true":
-        qs = qs.filter(Transaction.exclude == True)
-    elif exclude_filter.lower() == "false":
-        qs = qs.filter(Transaction.exclude == False)
+
+@router.get("")
+def list_transactions(db: DB, filters: Filters) -> TransactionListResponse:
+    """List all transactions.
+
+    Returns the list of all transactions. Query strings contain filters if anything applied. The response is also
+    paginated.
+    """
+    qs = db.query(Transaction).options(joinedload(Transaction.vendor)).order_by(Transaction.actual_date.desc())
+    qs = apply_transaction_filters(qs, filters=filters)
 
     total = qs.count()
     page_size = 50
     pages = max(1, (total + page_size - 1) // page_size)
-    page = min(page, pages)
+    page = min(filters.page, pages)
     items = qs.offset((page - 1) * page_size).limit(page_size).all()
 
     transactions_response = []
@@ -81,7 +51,7 @@ def list_transactions(
                 vendor_name=txn.vendor.name if txn.vendor else None,
                 suggestion1=SuggestionOut(**s1),
                 suggestion2=SuggestionOut(**s2),
-            )
+            ),
         )
     return TransactionListResponse(
         items=transactions_response,

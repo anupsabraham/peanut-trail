@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text, Numeric, Boolean, ForeignKey
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import CheckConstraint
 

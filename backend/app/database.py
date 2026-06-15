@@ -1,6 +1,8 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
 
@@ -11,7 +13,9 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-def get_db():
+
+def get_db() -> Generator[Session, None, None]:
+    """Yield a database session and ensure it is closed after use."""
     db = SessionLocal()
     try:
         yield db

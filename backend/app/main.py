@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import analytics, transactions
 
-
 app = FastAPI(title="FinancePlan API")
 
 app.add_middleware(
@@ -15,10 +14,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/health")
-def health():
-    """Check the status of the service"""
+def health() -> dict[str, str]:
+    """Check the status of the service."""
     return {"status": "ok"}
+
 
 app.include_router(analytics.router)
 app.include_router(transactions.router)
