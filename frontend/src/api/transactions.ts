@@ -38,6 +38,10 @@ export const getTransactions = (params: {
   page_size?: number
   search?: string
   category?: string
-  sub_category?: string
-  exclude?: boolean
+  vendor?: string
+  start_date?: string
+  end_date?: string
+  min_amount?: number
+  max_amount?: number
+  exclude_filter?: string
 }) => client.get<PaginatedTransactions>('/api/transactions', { params }).then(r => r.data)

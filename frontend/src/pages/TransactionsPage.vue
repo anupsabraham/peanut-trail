@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
+import { watchDebounced } from '@vueuse/core'
 import {
   getTransactions
 } from '@/api/transactions'
@@ -13,7 +14,12 @@ const pages = ref(1)
 
 const search = ref('')
 const filterCategory = ref('')
-const filterExclude = ref<boolean | undefined>(undefined)
+const filterVendor = ref('')
+const filterStartDate = ref('')
+const filterEndDate = ref('')
+const filterMinAmount = ref<number | undefined>(undefined)
+const filterMaxAmount = ref<number | undefined>(undefined)
+const filterExclude = ref('')
 
 const categories = computed(() =>
   [...new Set(items.value.map(t => t.category).filter(Boolean))].sort()
@@ -34,7 +40,12 @@ async function load() {
     page_size: pageSize,
     search: search.value || undefined,
     category: filterCategory.value || undefined,
-    exclude: filterExclude.value,
+    vendor: filterVendor.value || undefined,
+    start_date: filterStartDate.value || undefined,
+    end_date: filterEndDate.value || undefined,
+    min_amount: filterMinAmount.value,
+    max_amount: filterMaxAmount.value,
+    exclude_filter: filterExclude.value || undefined,
   })
   items.value = res.items
   total.value = res.total
@@ -58,8 +69,19 @@ function applySuggestion(txn: Transaction, s: Transaction['suggestion1']) {
   }
 }
 
-
-watch([search, filterCategory, filterExclude], () => { page.value = 1; load() })
+watchDebounced([
+    search,
+    filterVendor,
+    filterMinAmount,
+    filterMaxAmount,
+], () => {page.value=1; load()},
+    { debounce: 500 }
+)
+watch([
+  filterCategory,
+  filterStartDate,
+  filterEndDate,
+  filterExclude], () => { page.value = 1; load() })
 watch(page, load)
 
 onMounted(() =>{
@@ -85,13 +107,26 @@ onMounted(() =>{
         <option value="">All Categories</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
       </select>
-      <select
-        v-model="filterExclude"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-      >
-        <option :value="undefined">All</option>
-        <option :value="false">Active</option>
-        <option :value="true">Excluded</option>
+      <input v-model="filterVendor" placeholder="Vendor..."
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+
+      <input type="date" v-model="filterStartDate"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+
+      <input type="date" v-model="filterEndDate"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+
+      <input type="number" v-model="filterMinAmount" placeholder="Min ₹"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300" />
+
+      <input type="number" v-model="filterMaxAmount" placeholder="Max ₹"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300" />
+
+      <select v-model="filterExclude"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300">
+        <option value="">All</option>
+        <option value="false">Active</option>
+        <option value="true">Excluded</option>
       </select>
       <span class="text-sm text-gray-400 ml-auto">{{ total }} transactions</span>
     </div>
