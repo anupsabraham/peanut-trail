@@ -25,7 +25,11 @@ export interface ProgressionChartData {
 }
 
 export const getCategoryExpenses = () =>
-  client.get<CategoryExpenses>('/api/analytics/expenses/by-category/current-month').then(r => r.data)
+  client
+    .get<CategoryExpenses>('/api/analytics/expenses/by-category/current-month')
+    .then((r) => r.data)
 
 export const getProgressionChartData = () =>
-  client.get<ProgressionChartData>('/api/analytics/chart/progression/current-month').then(r => r.data)
+  client
+    .get<ProgressionChartData>('/api/analytics/chart/progression/current-month')
+    .then((r) => r.data)

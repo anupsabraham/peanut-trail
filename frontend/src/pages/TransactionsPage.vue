@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { watchDebounced } from '@vueuse/core'
-import {
-  getTransactions
-} from '@/api/transactions'
+import { getTransactions } from '@/api/transactions'
 import type { Transaction } from '@/api/transactions'
 
 const items = ref<Transaction[]>([])
@@ -22,11 +20,11 @@ const filterMaxAmount = ref<number | undefined>(undefined)
 const filterExclude = ref('')
 
 const categories = computed(() =>
-  [...new Set(items.value.map(t => t.category).filter(Boolean))].sort()
+  [...new Set(items.value.map((t) => t.category).filter(Boolean))].sort(),
 )
 
 const subcategories = computed(() =>
-  [...new Set(items.value.map(t => t.sub_category).filter(Boolean))].sort()
+  [...new Set(items.value.map((t) => t.sub_category).filter(Boolean))].sort(),
 )
 // Track per-row edits
 const edits = ref<Record<number, Partial<Transaction>>>({})
@@ -69,30 +67,27 @@ function applySuggestion(txn: Transaction, s: Transaction['suggestion1']) {
   }
 }
 
-watchDebounced([
-    search,
-    filterVendor,
-    filterMinAmount,
-    filterMaxAmount,
-], () => {page.value=1; load()},
-    { debounce: 500 }
+watchDebounced(
+  [search, filterVendor, filterMinAmount, filterMaxAmount],
+  () => {
+    page.value = 1
+    load()
+  },
+  { debounce: 500 },
 )
-watch([
-  filterCategory,
-  filterStartDate,
-  filterEndDate,
-  filterExclude], () => { page.value = 1; load() })
-watch(page, load)
-
-onMounted(() =>{
+watch([filterCategory, filterStartDate, filterEndDate, filterExclude], () => {
+  page.value = 1
   load()
 })
+watch(page, load)
 
+onMounted(() => {
+  load()
+})
 </script>
 
 <template>
   <div class="max-w-[1400px] mx-auto px-6 py-8 space-y-4">
-
     <!-- Filters -->
     <div class="flex gap-3 flex-wrap items-center">
       <input
@@ -107,23 +102,42 @@ onMounted(() =>{
         <option value="">All Categories</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
       </select>
-      <input v-model="filterVendor" placeholder="Vendor..."
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <input
+        v-model="filterVendor"
+        placeholder="Vendor..."
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
 
-      <input type="date" v-model="filterStartDate"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <input
+        type="date"
+        v-model="filterStartDate"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
 
-      <input type="date" v-model="filterEndDate"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <input
+        type="date"
+        v-model="filterEndDate"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
 
-      <input type="number" v-model="filterMinAmount" placeholder="Min ₹"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <input
+        type="number"
+        v-model="filterMinAmount"
+        placeholder="Min ₹"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
 
-      <input type="number" v-model="filterMaxAmount" placeholder="Max ₹"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300" />
+      <input
+        type="number"
+        v-model="filterMaxAmount"
+        placeholder="Max ₹"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
 
-      <select v-model="filterExclude"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300">
+      <select
+        v-model="filterExclude"
+        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+      >
         <option value="">All</option>
         <option value="false">Active</option>
         <option value="true">Excluded</option>
@@ -158,32 +172,45 @@ onMounted(() =>{
           >
             <!-- Debit Date -->
             <td class="px-3 py-2">
-              <input type="date" v-model="getEdit(txn).debit_date"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                type="date"
+                v-model="getEdit(txn).debit_date"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Actual Date -->
             <td class="px-3 py-2">
-              <input type="date" v-model="getEdit(txn).actual_date"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                type="date"
+                v-model="getEdit(txn).actual_date"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Narration -->
             <td class="px-3 py-2">
-              <input v-model="getEdit(txn).narration"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                v-model="getEdit(txn).narration"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Txn Number -->
             <td class="px-3 py-2">
-              <input v-model="getEdit(txn).txn_number"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-36 font-mono focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                v-model="getEdit(txn).txn_number"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-36 font-mono focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Amount -->
             <td class="px-3 py-2">
-              <input type="number" v-model="getEdit(txn).debit_amount"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-24 text-right focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                type="number"
+                v-model="getEdit(txn).debit_amount"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-24 text-right focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Vendor (non-editable) -->
@@ -213,8 +240,10 @@ onMounted(() =>{
 
             <!-- Notes -->
             <td class="px-3 py-2">
-              <input v-model="getEdit(txn).notes"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <input
+                v-model="getEdit(txn).notes"
+                class="border border-gray-200 rounded px-2 py-1 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              />
             </td>
 
             <!-- Exclude -->
@@ -248,11 +277,13 @@ onMounted(() =>{
             <td class="px-3 py-2 text-center">
               <div class="flex gap-1 justify-center">
                 <button
-                  class="text-xs bg-gray-800 hover:bg-gray-700 text-white rounded px-2 py-1 transition-colors">
+                  class="text-xs bg-gray-800 hover:bg-gray-700 text-white rounded px-2 py-1 transition-colors"
+                >
                   Save
                 </button>
                 <button
-                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded px-2 py-1 transition-colors">
+                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded px-2 py-1 transition-colors"
+                >
                   Delete
                 </button>
               </div>
@@ -270,14 +301,17 @@ onMounted(() =>{
           :disabled="page <= 1"
           @click="page--"
           class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-        >Prev</button>
+        >
+          Prev
+        </button>
         <button
           :disabled="page >= pages"
           @click="page++"
           class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-        >Next</button>
+        >
+          Next
+        </button>
       </div>
     </div>
-
   </div>
 </template>

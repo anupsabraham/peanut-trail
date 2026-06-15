@@ -2,16 +2,21 @@
 import { ref, onMounted } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
-  Chart as ChartJS, LineElement, PointElement,
-  LinearScale, CategoryScale, Legend, Tooltip
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Legend,
+  Tooltip,
 } from 'chart.js'
 import { getCategoryExpenses, getProgressionChartData } from '@/api/dashboard'
 import type { CategoryRow, ChartDataset } from '@/api/dashboard'
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip)
 
-const summary = ref<{ categories: CategoryRow[], total_expense: number } | null>(null)
-const chartData = ref<{ labels: number[], datasets: ChartDataset[] } | null>(null)
+const summary = ref<{ categories: CategoryRow[]; total_expense: number } | null>(null)
+const chartData = ref<{ labels: number[]; datasets: ChartDataset[] } | null>(null)
 const loading = ref(true)
 
 onMounted(async () => {
@@ -19,11 +24,11 @@ onMounted(async () => {
   summary.value = s
   chartData.value = {
     labels: p.days,
-    datasets: p.progression_datasets.map(d => ({
+    datasets: p.progression_datasets.map((d) => ({
       ...d,
       borderDash: d.borderDash ?? undefined,
       pointRadius: d.pointRadius ?? undefined,
-    }))
+    })),
   }
   loading.value = false
 })
@@ -36,7 +41,6 @@ onMounted(async () => {
   </div>
 
   <div v-else class="max-w-6xl mx-auto px-6 py-10 space-y-8">
-
     <!-- Header -->
     <div class="flex items-baseline justify-between">
       <h1 class="text-2xl font-semibold text-gray-800">This Month</h1>
@@ -46,9 +50,10 @@ onMounted(async () => {
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
       <!-- Category table -->
-      <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div
+        class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-gray-50 text-gray-500 uppercase text-xs tracking-wide">
@@ -73,7 +78,9 @@ onMounted(async () => {
 
       <!-- Chart -->
       <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">Spending Progression</h2>
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+          Spending Progression
+        </h2>
         <div class="h-80">
           <Line
             v-if="chartData"
@@ -82,7 +89,6 @@ onMounted(async () => {
           />
         </div>
       </div>
-
     </div>
   </div>
 </template>

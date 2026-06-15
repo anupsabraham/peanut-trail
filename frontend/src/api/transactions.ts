@@ -44,4 +44,4 @@ export const getTransactions = (params: {
   min_amount?: number
   max_amount?: number
   exclude_filter?: string
-}) => client.get<PaginatedTransactions>('/api/transactions', { params }).then(r => r.data)
+}) => client.get<PaginatedTransactions>('/api/transactions', { params }).then((r) => r.data)
