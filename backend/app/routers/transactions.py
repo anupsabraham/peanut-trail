@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -59,3 +60,37 @@ def list_transactions(db: DB, filters: Filters) -> TransactionListResponse:
         page=page,
         pages=pages,
     )
+
+
+@router.get("/meta/categories/list")
+def get_categories(db: DB) -> list[str]:
+    """Return all the categories saved in db."""
+    rows = (
+        db.query(Transaction.category, func.sum(Transaction.debit_amount).label("total"))
+        .filter(Transaction.category != "")
+        .filter(Transaction.exclude == False)  # noqa: E712
+        .group_by(Transaction.category)
+        .order_by(func.sum(Transaction.debit_amount).desc())
+        .all()
+    )
+
+    return [r[0] for r in rows]
+
+
+@router.get("/meta/subcategories/list")
+def get_subcategories(db: DB, category: Annotated[str, Query()] = "") -> list[str]:
+    """Return all the subcategories, optionally filtered by category."""
+    qs = (
+        db.query(Transaction.sub_category, func.sum(Transaction.debit_amount).label("total"))
+        .filter(Transaction.sub_category != "")
+        .filter(Transaction.exclude == False)  # noqa: E712
+    )
+    if category:
+        qs = qs.filter(Transaction.category == category)
+
+    rows = (
+        qs.group_by(Transaction.category, Transaction.sub_category)
+        .order_by(func.sum(Transaction.debit_amount).desc())
+        .all()
+    )
+    return [r[0] for r in rows]
