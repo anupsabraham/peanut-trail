@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Transaction
 from app.schemas import CategoryExpenseResponse, ChartDataset, DashboardCategoryRow, ProgressionChartResponse
-from app.utils import compute_trend, days_in_month
+from app.utils import compute_trend, get_days_in_month
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 DB = Annotated[Session, Depends(get_db)]
@@ -56,7 +56,7 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
     """
 
     def _get_month_cumulative(db: Session, year: int, month: int, today: date) -> list:
-        days_in_m = days_in_month(year, month)
+        days_in_m = get_days_in_month(year, month)
 
         daily_rows = (
             db.query(
@@ -91,7 +91,7 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
     today = datetime.now(tz=UTC).date()
 
     current_month_data = _get_month_cumulative(db, today.year, today.month, today)
-    days_in_current = days_in_month(today.year, today.month)
+    days_in_current = get_days_in_month(today.year, today.month)
     trend_data = compute_trend(current_month_data, days_in_current)
 
     datasets = [

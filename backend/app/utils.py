@@ -46,7 +46,7 @@ def compute_trend(data_points: list[float | None], days_in_month: int) -> list[f
     return trend
 
 
-def days_in_month(year: int, month: int) -> int:
+def get_days_in_month(year: int, month: int) -> int:
     """Get the number of days in a specific month."""
     return calendar.monthrange(year, month)[1]
 
