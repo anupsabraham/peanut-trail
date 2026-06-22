@@ -120,8 +120,8 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
     for i in range(1, 4):
         prev_month = today.month - i
         prev_year = today.year
-        while prev_month <= 0:
-            prev_month += 12
+        if prev_month <= 0:
+            prev_month = 12
             prev_year -= 1
         m_date = date(prev_year, prev_month, 1)
         datasets.append(
