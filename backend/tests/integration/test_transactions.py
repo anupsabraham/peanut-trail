@@ -5,6 +5,7 @@ from datetime import date
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models import Transaction
 from tests.conftest import make_transaction, make_vendor
 
 
@@ -274,3 +275,21 @@ class TestHealthCheck:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+
+class TestDeleteTransaction:
+    def test_delete_transaction_success(self, client: TestClient, db: Session) -> None:
+        new_txn = make_transaction(db, category="Food", sub_category="Groceries", txn_number="TEST123")
+        resp = client.delete(f"/api/transactions/{new_txn.id}")
+        assert resp.status_code == 204
+
+        deleted_txn = db.query(Transaction).filter(Transaction.id == new_txn.id).first()
+        assert deleted_txn is None
+
+    def test_delete_transaction_wrong_id_returns_404(self, client: TestClient, db: Session) -> None:
+        new_txn = make_transaction(db, category="Food", sub_category="Groceries", txn_number="TEST123")
+        client.delete(f"/api/trnsactions/{new_txn.id}")
+
+        # Try to delete it again to get a failure.
+        resp = client.delete(f"/api/trnsactions/{new_txn.id}")
+        assert resp.status_code == 404

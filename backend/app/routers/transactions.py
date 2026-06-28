@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -94,3 +94,16 @@ def get_subcategories(db: DB, category: Annotated[str, Query()] = "") -> list[st
         .all()
     )
     return [r[0] for r in rows]
+
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transaction(transaction_id: int, db: DB) -> None:
+    """Delete a transaction using transaction id."""
+    txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not txn:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"No transaction with id {transaction_id} found."
+        )
+
+    db.delete(txn)
+    db.commit()

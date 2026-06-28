@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { watchDebounced } from '@vueuse/core'
-import { getTransactions } from '@/api/transactions'
-import type { Transaction } from '@/api/transactions'
+import {computed, onMounted, ref, watch} from 'vue'
+import {watchDebounced} from '@vueuse/core'
+import type {Transaction} from '@/api/transactions'
+import {deleteTransaction, getTransactions} from '@/api/transactions'
 
 const items = ref<Transaction[]>([])
 const total = ref(0)
@@ -19,12 +19,14 @@ const filterMinAmount = ref<number | undefined>(undefined)
 const filterMaxAmount = ref<number | undefined>(undefined)
 const filterExclude = ref('')
 
+const txnToDelete = ref<Transaction | null>(null)
+
 const categories = computed(() =>
-  [...new Set(items.value.map((t) => t.category).filter(Boolean))].sort(),
+    [...new Set(items.value.map((t) => t.category).filter(Boolean))].sort(),
 )
 
 const subcategories = computed(() =>
-  [...new Set(items.value.map((t) => t.sub_category).filter(Boolean))].sort(),
+    [...new Set(items.value.map((t) => t.sub_category).filter(Boolean))].sort(),
 )
 // Track per-row edits
 const edits = ref<Record<number, Partial<Transaction>>>({})
@@ -53,7 +55,7 @@ async function load() {
 }
 
 function getEdit(txn: Transaction) {
-  if (!edits.value[txn.id]) edits.value[txn.id] = { ...txn }
+  if (!edits.value[txn.id]) edits.value[txn.id] = {...txn}
   return edits.value[txn.id]
 }
 
@@ -67,13 +69,25 @@ function applySuggestion(txn: Transaction, s: Transaction['suggestion1']) {
   }
 }
 
+function confirmDelete(txn: Transaction) {
+  txnToDelete.value = txn
+}
+
+async function deleteConfirmed() {
+  if (!txnToDelete.value) return
+
+  await deleteTransaction(txnToDelete.value.id)
+  txnToDelete.value = null
+  await load()
+}
+
 watchDebounced(
-  [search, filterVendor, filterMinAmount, filterMaxAmount],
-  () => {
-    page.value = 1
-    load()
-  },
-  { debounce: 500 },
+    [search, filterVendor, filterMinAmount, filterMaxAmount],
+    () => {
+      page.value = 1
+      load()
+    },
+    {debounce: 500},
 )
 watch([filterCategory, filterStartDate, filterEndDate, filterExclude], () => {
   page.value = 1
@@ -91,52 +105,52 @@ onMounted(() => {
     <!-- Filters -->
     <div class="flex gap-3 flex-wrap items-center">
       <input
-        v-model="search"
-        placeholder="Search narration / txn number..."
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          v-model="search"
+          placeholder="Search ..."
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
       <select
-        v-model="filterCategory"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          v-model="filterCategory"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
       >
         <option value="">All Categories</option>
         <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
       </select>
       <input
-        v-model="filterVendor"
-        placeholder="Vendor..."
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          v-model="filterVendor"
+          placeholder="Vendor..."
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
 
       <input
-        type="date"
-        v-model="filterStartDate"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          type="date"
+          v-model="filterStartDate"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
 
       <input
-        type="date"
-        v-model="filterEndDate"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          type="date"
+          v-model="filterEndDate"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
 
       <input
-        type="number"
-        v-model="filterMinAmount"
-        placeholder="Min ₹"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          type="number"
+          v-model="filterMinAmount"
+          placeholder="Min ₹"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
 
       <input
-        type="number"
-        v-model="filterMaxAmount"
-        placeholder="Max ₹"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          type="number"
+          v-model="filterMaxAmount"
+          placeholder="Max ₹"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
 
       <select
-        v-model="filterExclude"
-        class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          v-model="filterExclude"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
       >
         <option value="">All</option>
         <option value="false">Active</option>
@@ -149,169 +163,224 @@ onMounted(() => {
     <div class="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-            <th class="px-3 py-3 text-left">Debit Date</th>
-            <th class="px-3 py-3 text-left">Actual Date</th>
-            <th class="px-3 py-3 text-left w-64">Narration</th>
-            <th class="px-3 py-3 text-left">Txn #</th>
-            <th class="px-3 py-3 text-right">Amount</th>
-            <th class="px-3 py-3 text-left">Vendor</th>
-            <th class="px-3 py-3 text-left">Category</th>
-            <th class="px-3 py-3 text-left">Subcategory</th>
-            <th class="px-3 py-3 text-left">Notes</th>
-            <th class="px-3 py-3 text-center">Exclude</th>
-            <th class="px-3 py-3 text-left">Suggestions</th>
-            <th class="px-3 py-3 text-center">Actions</th>
-          </tr>
+        <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+          <th class="px-3 py-3 text-left">Debit Date</th>
+          <th class="px-3 py-3 text-left">Actual Date</th>
+          <th class="px-3 py-3 text-left w-64">Narration</th>
+          <th class="px-3 py-3 text-left">Txn #</th>
+          <th class="px-3 py-3 text-right">Amount</th>
+          <th class="px-3 py-3 text-left">Vendor</th>
+          <th class="px-3 py-3 text-left">Category</th>
+          <th class="px-3 py-3 text-left">Subcategory</th>
+          <th class="px-3 py-3 text-left">Notes</th>
+          <th class="px-3 py-3 text-center">Exclude</th>
+          <th class="px-3 py-3 text-left">Suggestions</th>
+          <th class="px-3 py-3 text-center sticky right-0 z-20 bg-gray-50">Actions</th>
+        </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          <tr
+        <tr
             v-for="txn in items"
             :key="txn.id"
-            :class="['hover:bg-gray-50 transition-colors', txn.exclude ? 'opacity-50' : '']"
-          >
-            <!-- Debit Date -->
-            <td class="px-3 py-2">
-              <input
+            :class="['hover:bg-gray-50 transition-colors']"
+        >
+          <!-- Debit Date -->
+          <td class="px-3 py-2">
+            <input
                 type="date"
                 v-model="getEdit(txn).debit_date"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+                :class="['border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300', txn.exclude ? 'opacity-50' : '']"
+            />
+          </td>
 
-            <!-- Actual Date -->
-            <td class="px-3 py-2">
-              <input
+          <!-- Actual Date -->
+          <td class="px-3 py-2">
+            <input
                 type="date"
                 v-model="getEdit(txn).actual_date"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+                :class="['border border-gray-200 rounded px-2 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-gray-300', txn.exclude ? 'opacity-50' : '']"
+            />
+          </td>
 
-            <!-- Narration -->
-            <td class="px-3 py-2">
-              <input
+          <!-- Narration -->
+          <td class="px-3 py-2">
+            <input
                 v-model="getEdit(txn).narration"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+                :class="['border border-gray-200 rounded px-2 py-1 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-gray-300', txn.exclude ? 'opacity-50' : '']"
+            />
+          </td>
 
-            <!-- Txn Number -->
-            <td class="px-3 py-2">
-              <input
+          <!-- Txn Number -->
+          <td class="px-3 py-2">
+            <input
                 v-model="getEdit(txn).txn_number"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-36 font-mono focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+                :class="['border border-gray-200 rounded px-2 py-1 text-xs w-36 font-mono focus:outline-none focus:ring-1 focus:ring-gray-300', txn.exclude ? 'opacity-50' : '']"
+            />
+          </td>
 
-            <!-- Amount -->
-            <td class="px-3 py-2">
-              <input
+          <!-- Amount -->
+          <td class="px-3 py-2">
+            <input
                 type="number"
                 v-model="getEdit(txn).debit_amount"
-                class="border border-gray-200 rounded px-2 py-1 text-xs w-24 text-right focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+                :class="['border border-gray-200 rounded px-2 py-1 text-xs w-24 text-right focus:outline-none focus:ring-1 focus:ring-gray-300', txn.exclude ? 'opacity-50' : '']"
+            />
+          </td>
 
-            <!-- Vendor (non-editable) -->
-            <td class="px-3 py-2 text-gray-500 text-xs">{{ txn.vendor_name }}</td>
+          <!-- Vendor (non-editable) -->
+          <td :class="['px-3 py-2 text-gray-500 text-xs', txn.exclude ? 'opacity-50' : '']">{{ txn.vendor_name }}</td>
 
-            <!-- Category -->
-            <td class="px-3 py-2">
-              <select
+          <!-- Category -->
+          <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
+            <select
                 v-model="getEdit(txn).category"
                 class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-              >
-                <option value="">—</option>
-                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-              </select>
-            </td>
+            >
+              <option value="">—</option>
+              <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+            </select>
+          </td>
 
-            <!-- Subcategory -->
-            <td class="px-3 py-2">
-              <select
+          <!-- Subcategory -->
+          <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
+            <select
                 v-model="getEdit(txn).sub_category"
                 class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-              >
-                <option value="">—</option>
-                <option v-for="s in subcategories" :key="s" :value="s">{{ s }}</option>
-              </select>
-            </td>
+            >
+              <option value="">—</option>
+              <option v-for="s in subcategories" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </td>
 
-            <!-- Notes -->
-            <td class="px-3 py-2">
-              <input
+          <!-- Notes -->
+          <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
+            <input
                 v-model="getEdit(txn).notes"
                 class="border border-gray-200 rounded px-2 py-1 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-gray-300"
-              />
-            </td>
+            />
+          </td>
 
-            <!-- Exclude -->
-            <td class="px-3 py-2 text-center">
-              <input type="checkbox" v-model="getEdit(txn).exclude" class="rounded" />
-            </td>
+          <!-- Exclude -->
+          <td :class="['px-3 py-2 text-center', txn.exclude ? 'opacity-50' : '']">
+            <input type="checkbox" v-model="getEdit(txn).exclude" class="rounded"/>
+          </td>
 
-            <!-- Suggestions -->
-            <td class="px-3 py-2">
-              <div class="flex flex-col gap-1">
-                <button
+          <!-- Suggestions -->
+          <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
+            <div class="flex flex-col gap-1">
+              <button
                   v-if="txn.suggestion1?.category"
                   @click="applySuggestion(txn, txn.suggestion1)"
                   class="text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded px-2 py-0.5 truncate max-w-[160px]"
                   :title="`${txn.suggestion1.category} / ${txn.suggestion1.sub_category}`"
-                >
-                  {{ txn.suggestion1.category }} · {{ txn.suggestion1.sub_category }}
-                </button>
-                <button
+              >
+                {{ txn.suggestion1.category }} · {{ txn.suggestion1.sub_category }}
+              </button>
+              <button
                   v-if="txn.suggestion2?.category"
                   @click="applySuggestion(txn, txn.suggestion2)"
                   class="text-left text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 rounded px-2 py-0.5 truncate max-w-[160px]"
                   :title="`${txn.suggestion2.category} / ${txn.suggestion2.sub_category}`"
-                >
-                  {{ txn.suggestion2.category }} · {{ txn.suggestion2.sub_category }}
-                </button>
-              </div>
-            </td>
+              >
+                {{ txn.suggestion2.category }} · {{ txn.suggestion2.sub_category }}
+              </button>
+            </div>
+          </td>
 
-            <!-- Actions -->
-            <td class="px-3 py-2 text-center">
-              <div class="flex gap-1 justify-center">
-                <button
+          <!-- Actions -->
+          <td class="px-3 py-2 text-center sticky right-0 bg-white opacity-100">
+            <div class="flex gap-1 justify-center">
+              <button
                   class="text-xs bg-gray-800 hover:bg-gray-700 text-white rounded px-2 py-1 transition-colors"
-                >
-                  Save
-                </button>
-                <button
-                  class="text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded px-2 py-1 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </td>
-          </tr>
+              >
+                Save
+              </button>
+              <button @click="confirmDelete(txn)"
+                      class="text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded px-2 py-1 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Pagination -->
     <div class="flex items-center justify-between text-sm text-gray-500">
-      <span>Page {{ page }} of {{ pages }}</span>
+      <span class="flex items-center gap-2">
+        Page
+        <input
+            v-model.number="page"
+            type="number"
+            :min="1"
+            :max="pages"
+            @change="page = Math.min(Math.max(page, 1), pages)"
+            class="w-16 rounded border border-gray-300 px-2 py-1 text-center"
+        />
+        of {{ pages }}
+      </span>
+
       <div class="flex gap-2">
         <button
-          :disabled="page <= 1"
-          @click="page--"
-          class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
+            :disabled="page <= 1"
+            @click="page--"
+            class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
         >
           Prev
         </button>
         <button
-          :disabled="page >= pages"
-          @click="page++"
-          class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
+            :disabled="page >= pages"
+            @click="page++"
+            class="px-3 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
         >
           Next
         </button>
       </div>
     </div>
   </div>
+  <Teleport to="body">
+    <div
+        v-if="txnToDelete"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    >
+      <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h2 class="text-lg font-semibold text-gray-900">
+          Delete Transaction?
+        </h2>
+
+        <p class="mt-2 text-sm text-gray-600">
+          This action cannot be undone.
+        </p>
+
+        <div class="mt-4 rounded-lg bg-gray-50 p-4 text-sm">
+          <div><strong>Date:</strong> {{ txnToDelete.actual_date }}</div>
+          <div><strong>Description:</strong> {{ txnToDelete.narration }}</div>
+          <div><strong>TXN #:</strong> {{ txnToDelete.txn_number }}</div>
+          <div><strong>Amount:</strong> ₹{{ txnToDelete.debit_amount }}</div>
+          <div><strong>Vendor:</strong> {{ txnToDelete.vendor_name }}</div>
+          <div><strong>Category:</strong> {{ txnToDelete.category }}</div>
+          <div><strong>Subcategory:</strong> {{ txnToDelete.sub_category }}</div>
+          <div><strong>Notes:</strong> {{ txnToDelete.notes }}</div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button
+              @click="txnToDelete = null"
+              class="rounded border px-4 py-2 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+
+          <button
+              @click="deleteConfirmed"
+              class="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
