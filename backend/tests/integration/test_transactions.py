@@ -319,3 +319,27 @@ class TestUpdateTransaction:
         updated_data = {"sub_category": "Fresh Produce"}
         resp = client.patch(f"/api/transactions/{new_txn.id}", json=updated_data)
         assert resp.status_code == 404
+
+    def test_id_and_vendor_cannot_be_updated(self, client: TestClient, db: Session) -> None:
+        vendor = make_vendor(db, "Test Vendor")
+        new_txn = make_transaction(
+            db, txn_number="TEST003", category="Groceries", sub_category="Supermarket", vendor_id=vendor.id
+        )
+
+        update_vendor = make_vendor(db, "Updated Vendor")
+        update_id = new_txn.id + 1
+
+        client.patch(f"/api/transactions/{new_txn.id}", json={"id": update_id, "vendor_id": update_vendor.id})
+
+        updated_txn = db.query(Transaction).filter(Transaction.txn_number == "TEST003").first()
+        assert updated_txn.id == new_txn.id
+        assert updated_txn.vendor_id == vendor.id
+
+    def test_non_excluded_without_category_raises_422(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST004", category="Groceries", sub_category="Supermarket", exclude=True)
+
+        update_value = {"exclude": False, "category": "", "sub_category": ""}
+
+        resp = client.patch(f"/api/transactions/{txn.id}", json=update_value)
+
+        assert resp.status_code == 422

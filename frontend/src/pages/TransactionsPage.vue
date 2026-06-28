@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {watchDebounced} from '@vueuse/core'
-import type {Transaction} from '@/api/transactions'
-import {deleteTransaction, getTransactions} from '@/api/transactions'
+import {deleteTransaction, getTransactions, type Transaction, updateTransaction} from '@/api/transactions'
 
 const items = ref<Transaction[]>([])
 const total = ref(0)
@@ -76,9 +75,32 @@ function confirmDelete(txn: Transaction) {
 async function deleteConfirmed() {
   if (!txnToDelete.value) return
 
-  await deleteTransaction(txnToDelete.value.id)
-  txnToDelete.value = null
-  await load()
+  try {
+    await deleteTransaction(txnToDelete.value.id)
+  } finally {
+    txnToDelete.value = null
+    await load()
+  }
+}
+
+async function save(txn: Transaction) {
+  const edit = edits.value[txn.id]
+  if (!edit) return
+  try {
+    await updateTransaction(txn.id, {
+      debit_date: edit.debit_date,
+      actual_date: edit.actual_date,
+      narration: edit.narration,
+      txn_number: edit.txn_number,
+      debit_amount: edit.debit_amount,
+      category: edit.category,
+      sub_category: edit.sub_category,
+      notes: edit.notes,
+      exclude: edit.exclude
+    })
+  } finally {
+    await load()
+  }
 }
 
 watchDebounced(
@@ -290,8 +312,8 @@ onMounted(() => {
           <!-- Actions -->
           <td class="px-3 py-2 text-center sticky right-0 bg-white opacity-100">
             <div class="flex gap-1 justify-center">
-              <button
-                  class="text-xs bg-gray-800 hover:bg-gray-700 text-white rounded px-2 py-1 transition-colors"
+              <button @click="save(txn)"
+                      class="text-xs bg-gray-800 hover:bg-gray-700 text-white rounded px-2 py-1 transition-colors"
               >
                 Save
               </button>

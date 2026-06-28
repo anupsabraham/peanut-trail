@@ -1,6 +1,7 @@
 import calendar
 import math
 
+from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -150,3 +151,12 @@ def get_transaction_out_obj(db: Session, txn: Transaction | None) -> Transaction
         suggestion1=SuggestionOut(**s1),
         suggestion2=SuggestionOut(**s2),
     )
+
+
+def validate_transaction(txn: Transaction) -> None:
+    """If transaction is not excluded, both the category and subcategory cannot be empty."""
+    if not txn.exclude and (not txn.category or not txn.sub_category):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Category and sub-category are required when the transaction is not excluded.",
+        )

@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import Transaction
 from app.schemas import TransactionFilters, TransactionListResponse, TransactionOut, TransactionUpdate
 from app.services.transactions import apply_transaction_filters
-from app.utils import get_transaction_out_obj
+from app.utils import get_transaction_out_obj, validate_transaction
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
@@ -101,6 +101,8 @@ def update_transaction(transaction_id: int, update: TransactionUpdate, db: DB) -
 
     for field, value in update.model_dump(exclude_unset=True).items():
         setattr(txn, field, value)
+
+    validate_transaction(txn)
 
     db.commit()
     db.refresh(txn)

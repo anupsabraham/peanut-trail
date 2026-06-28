@@ -33,6 +33,18 @@ export interface PaginatedTransactions {
     pages: number
 }
 
+export interface TransactionUpdate {
+    debit_date?: string
+    actual_date?: string
+    narration?: string
+    txn_number?: string
+    debit_amount?: string
+    category?: string
+    sub_category?: string
+    notes?: string
+    exclude?: boolean
+}
+
 export const getTransactions = (params: {
     page?: number
     page_size?: number
@@ -48,3 +60,6 @@ export const getTransactions = (params: {
 
 export const deleteTransaction = (id: Number) =>
     client.delete(`/api/transactions/${id}`)
+
+export const updateTransaction = (id: Number, payload: TransactionUpdate) =>
+    client.patch(`/api/transactions/${id}`, payload).then(r => r.data)
