@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models import Transaction
-from app.schemas import SuggestionOut, TransactionFilters, TransactionListResponse, TransactionOut
+from app.schemas import TransactionFilters, TransactionListResponse, TransactionOut, TransactionUpdate
 from app.services.transactions import apply_transaction_filters
-from app.utils import get_category_suggestions
+from app.utils import get_transaction_out_obj
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
@@ -32,28 +32,8 @@ def list_transactions(db: DB, filters: Filters) -> TransactionListResponse:
     page = min(filters.page, pages)
     items = qs.offset((page - 1) * page_size).limit(page_size).all()
 
-    transactions_response = []
-    for txn in items:
-        s1, s2 = get_category_suggestions(db, txn.vendor)
-        transactions_response.append(
-            TransactionOut(
-                id=txn.id,
-                debit_date=txn.debit_date,
-                actual_date=txn.actual_date,
-                narration=txn.narration,
-                txn_number=txn.txn_number,
-                debit_amount=txn.debit_amount,
-                credit_amount=txn.credit_amount,
-                category=txn.category or "",
-                sub_category=txn.sub_category or "",
-                notes=txn.notes or "",
-                exclude=txn.exclude,
-                vendor_id=txn.vendor_id,
-                vendor_name=txn.vendor.name if txn.vendor else None,
-                suggestion1=SuggestionOut(**s1),
-                suggestion2=SuggestionOut(**s2),
-            ),
-        )
+    transactions_response = [get_transaction_out_obj(db, txn) for txn in items if txn]
+
     return TransactionListResponse(
         items=transactions_response,
         total=total,
@@ -107,3 +87,22 @@ def delete_transaction(transaction_id: int, db: DB) -> None:
 
     db.delete(txn)
     db.commit()
+
+
+@router.patch("/{transaction_id}")
+def update_transaction(transaction_id: int, update: TransactionUpdate, db: DB) -> TransactionOut:
+    """Update a transaction identified by transaction id."""
+    txn = db.query(Transaction).options(joinedload(Transaction.vendor)).filter(Transaction.id == transaction_id).first()
+
+    if txn is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"No transaction with id {transaction_id} found."
+        )
+
+    for field, value in update.model_dump(exclude_unset=True).items():
+        setattr(txn, field, value)
+
+    db.commit()
+    db.refresh(txn)
+
+    return get_transaction_out_obj(db, txn)

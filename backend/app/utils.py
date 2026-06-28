@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Transaction, Vendor
+from app.schemas import SuggestionOut, TransactionOut
 
 
 def compute_trend(data_points: list[float | None], days_in_month: int) -> list[float | None]:
@@ -124,3 +125,28 @@ def get_category_suggestions(db: Session, vendor: Vendor) -> tuple[dict, dict]:
         suggestion1["auto_prefill"] = True
 
     return suggestion1, suggestion2
+
+
+def get_transaction_out_obj(db: Session, txn: Transaction | None) -> TransactionOut | None:
+    """Return the TransactionOut schema for the transaction."""
+    if not txn:
+        return None
+    s1, s2 = get_category_suggestions(db, txn.vendor)
+
+    return TransactionOut(
+        id=txn.id,
+        debit_date=txn.debit_date,
+        actual_date=txn.actual_date,
+        narration=txn.narration,
+        txn_number=txn.txn_number,
+        debit_amount=txn.debit_amount,
+        credit_amount=txn.credit_amount,
+        category=txn.category or "",
+        sub_category=txn.sub_category or "",
+        notes=txn.notes or "",
+        exclude=txn.exclude,
+        vendor_id=txn.vendor_id,
+        vendor_name=txn.vendor.name if txn.vendor else None,
+        suggestion1=SuggestionOut(**s1),
+        suggestion2=SuggestionOut(**s2),
+    )

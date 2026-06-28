@@ -293,3 +293,29 @@ class TestDeleteTransaction:
         # Try to delete it again to get a failure.
         resp = client.delete(f"/api/trnsactions/{new_txn.id}")
         assert resp.status_code == 404
+
+
+class TestUpdateTransaction:
+    def test_update_transaction_success(self, client: TestClient, db: Session) -> None:
+        new_txn = make_transaction(db, txn_number="TEST001", category="Groceries", sub_category="Supermarket")
+
+        new_sub_category = "Fresh Produce"
+
+        updated_data = {"sub_category": new_sub_category}
+        resp = client.patch(f"/api/transactions/{new_txn.id}", json=updated_data)
+
+        assert resp.status_code == 200
+        assert resp.json()["sub_category"] == new_sub_category
+
+        updated_txn = db.query(Transaction).filter(Transaction.txn_number == "TEST001").first()
+        assert updated_txn.sub_category == new_sub_category
+
+    def test_non_existing_transaction_returns_404(self, client: TestClient, db: Session) -> None:
+        new_txn = make_transaction(db, txn_number="TEST002", category="Groceries", sub_category="Supermarket")
+
+        client.delete(f"/api/transactions/{new_txn.id}")
+
+        # Try to update the deleted transaction
+        updated_data = {"sub_category": "Fresh Produce"}
+        resp = client.patch(f"/api/transactions/{new_txn.id}", json=updated_data)
+        assert resp.status_code == 404

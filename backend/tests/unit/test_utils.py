@@ -3,7 +3,13 @@
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.utils import compute_trend, get_category_suggestions, get_confidence_score, get_days_in_month
+from app.utils import (
+    compute_trend,
+    get_category_suggestions,
+    get_confidence_score,
+    get_days_in_month,
+    get_transaction_out_obj,
+)
 from tests.conftest import make_transaction, make_vendor
 
 # ---------------------------------------------------------------------------
@@ -168,3 +174,20 @@ class TestGetCategorySuggestions:
         s1, _ = get_category_suggestions(db, vendor)
         if s1["confidence"] > settings.min_category_suggestion_confidence:
             assert s1["auto_prefill"] is True
+
+
+class TestGetTransactionOutObj:
+    def test_no_transaction_returns_empty(self, db: Session) -> None:
+        transaction_out_obj = get_transaction_out_obj(db, None)
+        assert transaction_out_obj is None
+
+    def test_transaction_returns_success(self, db: Session) -> None:
+        txn = make_transaction(db, txn_number="T002")
+        txn_out_obj = get_transaction_out_obj(db, txn)
+        assert txn_out_obj.txn_number == "T002"
+
+    def test_transaction_with_no_vendor_returns_no_suggestions(self, db: Session) -> None:
+        txn = make_transaction(db, txn_number="T003", vendor_id=None)
+        txn_out_obj = get_transaction_out_obj(db, txn)
+        assert txn_out_obj.suggestion1.category is None
+        assert txn_out_obj.suggestion2.category is None

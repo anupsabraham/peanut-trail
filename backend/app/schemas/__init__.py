@@ -1,6 +1,6 @@
 from .analytics import CategoryExpenseResponse, ChartDataset, DashboardCategoryRow, ProgressionChartResponse
 from .filters import TransactionFilters
-from .transactions import SuggestionOut, TransactionListResponse, TransactionOut
+from .transactions import SuggestionOut, TransactionListResponse, TransactionOut, TransactionUpdate
 
 __all__ = [
     "CategoryExpenseResponse",
@@ -11,4 +11,5 @@ __all__ = [
     "TransactionFilters",
     "TransactionListResponse",
     "TransactionOut",
+    "TransactionUpdate",
 ]
