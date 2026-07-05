@@ -20,6 +20,12 @@ class Transaction(Base):
     sub_category = Column(String(100), default="")
     notes = Column(Text, default="")
     exclude = Column(Boolean, default=False)
+    parent_transaction_id = Column(Integer, ForeignKey("expenses_transaction.id", ondelete="CASCADE"), nullable=True)
+    parent = relationship(
+        "Transaction",
+        remote_side="Transaction.id",
+        backref="children",
+    )
 
     vendor = relationship("Vendor", back_populates="transactions")
 

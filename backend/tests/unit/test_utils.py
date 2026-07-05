@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.utils import (
     compute_trend,
+    generate_split_txn_number,
     get_category_suggestions,
     get_confidence_score,
     get_days_in_month,
@@ -184,10 +185,31 @@ class TestGetTransactionOutObj:
     def test_transaction_returns_success(self, db: Session) -> None:
         txn = make_transaction(db, txn_number="T002")
         txn_out_obj = get_transaction_out_obj(db, txn)
+
         assert txn_out_obj.txn_number == "T002"
+        assert txn_out_obj.is_split is False
+        assert txn_out_obj.child_count == 0
 
     def test_transaction_with_no_vendor_returns_no_suggestions(self, db: Session) -> None:
         txn = make_transaction(db, txn_number="T003", vendor_id=None)
         txn_out_obj = get_transaction_out_obj(db, txn)
         assert txn_out_obj.suggestion1.category is None
         assert txn_out_obj.suggestion2.category is None
+
+    def test_split_transaction_returns_child_count(self, db: Session) -> None:
+        parent = make_transaction(db, txn_number="T100")
+
+        make_transaction(db, txn_number="T100_split1", parent=parent)
+        make_transaction(db, txn_number="T100_split2", parent=parent)
+        db.refresh(parent)
+
+        txn_out_obj = get_transaction_out_obj(db, parent)
+
+        assert txn_out_obj.is_split is True
+        assert txn_out_obj.child_count == 2
+
+
+class TestGenerateSplitTxnNumber:
+    def test_generates_first_split_number(self, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TXN001")
+        assert generate_split_txn_number(txn, 1) == "TXN001_split1"

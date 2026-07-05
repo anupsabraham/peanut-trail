@@ -84,3 +84,9 @@ def make_transaction(db: Session, **kwargs: object) -> Transaction:
     db.add(txn)
     db.flush()
     return txn
+
+
+def delete_transaction(db: Session, transaction: Transaction) -> None:
+    """Delete a transaction."""
+    db.delete(transaction)
+    db.commit()

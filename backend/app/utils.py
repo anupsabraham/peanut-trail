@@ -5,9 +5,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app import schemas
 from app.config import settings
 from app.models import Transaction, Vendor
-from app.schemas import SuggestionOut, TransactionOut
 
 
 def compute_trend(data_points: list[float | None], days_in_month: int) -> list[float | None]:
@@ -128,13 +128,13 @@ def get_category_suggestions(db: Session, vendor: Vendor) -> tuple[dict, dict]:
     return suggestion1, suggestion2
 
 
-def get_transaction_out_obj(db: Session, txn: Transaction | None) -> TransactionOut | None:
+def get_transaction_out_obj(db: Session, txn: Transaction | None) -> schemas.transactions.TransactionOut | None:
     """Return the TransactionOut schema for the transaction."""
     if not txn:
         return None
     s1, s2 = get_category_suggestions(db, txn.vendor)
 
-    return TransactionOut(
+    return schemas.transactions.TransactionOut(
         id=txn.id,
         debit_date=txn.debit_date,
         actual_date=txn.actual_date,
@@ -148,8 +148,10 @@ def get_transaction_out_obj(db: Session, txn: Transaction | None) -> Transaction
         exclude=txn.exclude,
         vendor_id=txn.vendor_id,
         vendor_name=txn.vendor.name if txn.vendor else None,
-        suggestion1=SuggestionOut(**s1),
-        suggestion2=SuggestionOut(**s2),
+        suggestion1=schemas.transactions.SuggestionOut(**s1),
+        suggestion2=schemas.transactions.SuggestionOut(**s2),
+        is_split=len(txn.children) > 0,
+        child_count=len(txn.children),
     )
 
 
@@ -160,3 +162,8 @@ def validate_transaction(txn: Transaction) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Category and sub-category are required when the transaction is not excluded.",
         )
+
+
+def generate_split_txn_number(parent: Transaction, index: int) -> str:
+    """Generate a transaction number with the original number and index of the split transaction."""
+    return f"{parent.txn_number}_split{index}"

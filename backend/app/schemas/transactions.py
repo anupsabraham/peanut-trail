@@ -48,6 +48,8 @@ class TransactionOut(TransactionBase):
     vendor_name: str | None = None
     suggestion1: SuggestionOut | None = None
     suggestion2: SuggestionOut | None = None
+    is_split: bool = False
+    child_count: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -56,3 +58,15 @@ class TransactionListResponse(BaseModel):
     total: int
     page: int
     pages: int
+
+
+class TransactionSplitItem(BaseModel):
+    debit_amount: Decimal
+    category: str
+    sub_category: str
+    exclude: bool = False
+    notes: str = ""
+
+
+class TransactionSplitRequest(BaseModel):
+    splits: list[TransactionSplitItem]

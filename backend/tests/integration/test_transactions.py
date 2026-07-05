@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import Transaction
-from tests.conftest import make_transaction, make_vendor
+from tests.conftest import delete_transaction, make_transaction, make_vendor
 
 
 class TestListTransactions:
@@ -313,7 +313,7 @@ class TestUpdateTransaction:
     def test_non_existing_transaction_returns_404(self, client: TestClient, db: Session) -> None:
         new_txn = make_transaction(db, txn_number="TEST002", category="Groceries", sub_category="Supermarket")
 
-        client.delete(f"/api/transactions/{new_txn.id}")
+        delete_transaction(db, new_txn)
 
         # Try to update the deleted transaction
         updated_data = {"sub_category": "Fresh Produce"}
@@ -343,3 +343,253 @@ class TestUpdateTransaction:
         resp = client.patch(f"/api/transactions/{txn.id}", json=update_value)
 
         assert resp.status_code == 422
+
+
+class TestSplitTransaction:
+    def test_split_transaction_success(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST001", debit_amount=1000)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 600,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 300,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+                {
+                    "debit_amount": 100,
+                    "category": "Misc",
+                    "sub_category": "Misc",
+                    "exclude": True,
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        assert resp.status_code == 200
+
+        children = (
+            db.query(Transaction).filter(Transaction.parent_transaction_id == txn.id).order_by(Transaction.id).all()
+        )
+
+        assert len(children) == 3
+
+        assert children[0].txn_number == "TEST001_split1"
+        assert children[0].debit_amount == 600
+        assert children[0].category == "Accessories"
+        assert children[0].exclude is False
+
+        assert children[1].txn_number == "TEST001_split2"
+        assert children[1].debit_amount == 300
+        assert children[1].category == "Fashion"
+        assert children[1].exclude is False
+
+        assert children[2].txn_number == "TEST001_split3"
+        assert children[2].debit_amount == 100
+        assert children[2].category == "Misc"
+        assert children[2].exclude is True
+
+    def test_split_non_existing_transaction_returns_404(self, client: TestClient, db: Session) -> None:
+        new_txn = make_transaction(db, txn_number="TEST002", category="Groceries", sub_category="Supermarket")
+        delete_transaction(db, new_txn)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 600,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 300,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{new_txn.id}/split", json=payload)
+
+        assert resp.status_code == 404
+
+    def test_split_total_amount_must_match_original_amount(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST003", debit_amount=10000)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 5000,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 15000,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        assert resp.status_code == 400
+
+        children = db.query(Transaction).filter(Transaction.parent_transaction_id == txn.id).all()
+        assert len(children) == 0
+
+    def test_transaction_cannot_be_split_twice(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST004", debit_amount=500)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 250,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 250,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        resp = client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        assert resp.status_code == 400
+
+    def test_child_transaction_cannot_be_split(self, client: TestClient, db: Session) -> None:
+        parent = make_transaction(db, txn_number="TEST005", debit_amount=1000)
+        child = make_transaction(db, txn_number="TEST005_split1", parent_transaction_id=parent.id, debit_amount=500)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 250,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 250,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{child.id}/split", json=payload)
+
+        assert resp.status_code == 400
+
+    def test_credit_transaction_cannot_be_split(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST006", credit_amount=1000)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 250,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 750,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        assert resp.status_code == 400
+
+    def test_parent_transaction_is_preserved(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST007", debit_amount=1000)
+        parent = db.query(Transaction).filter(Transaction.txn_number == "TEST007").first()
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 250,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 750,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        parent = db.query(Transaction).filter(Transaction.id == txn.id).first()
+
+        assert parent is not None
+        assert parent.txn_number == "TEST007"
+        assert parent.debit_amount == 1000
+
+
+class TestGetSplitTransactions:
+    def test_returns_split_transactions(self, client: TestClient, db: Session) -> None:
+        parent = make_transaction(db, txn_number="TEST001", debit_amount=1000)
+
+        make_transaction(db, parent_transaction_id=parent.id, txn_number="TEST001_split1", debit_amount=600)
+        make_transaction(db, parent_transaction_id=parent.id, txn_number="TEST001_split2", debit_amount=400)
+
+        resp = client.get(f"/api/transactions/{parent.id}/children")
+
+        assert resp.status_code == 200
+
+        data = resp.json()
+
+        assert len(data) == 2
+        assert data[0]["txn_number"] == "TEST001_split1"
+        assert data[1]["txn_number"] == "TEST001_split2"
+
+    def test_transaction_without_children_returns_empty_list(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST002", debit_amount=1000)
+
+        resp = client.get(f"/api/transactions/{txn.id}/children")
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_non_existing_transaction_returns_404(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST003")
+        delete_transaction(db, txn)
+
+        resp = client.get(f"/api/transactions/{txn.id}/children")
+        assert resp.status_code == 404
+
+    def test_child_contains_transaction_fields(self, client: TestClient, db: Session) -> None:
+        parent = make_transaction(db, txn_number="TEST004", debit_amount=1000)
+
+        make_transaction(
+            db,
+            parent_transaction_id=parent.id,
+            txn_number="TEST004_split1",
+            debit_amount=600,
+            category="Food",
+            sub_category="Groceries",
+        )
+
+        resp = client.get(f"/api/transactions/{parent.id}/children")
+
+        item = resp.json()[0]
+
+        assert item["txn_number"] == "TEST004_split1"
+        assert item["category"] == "Food"
+        assert item["sub_category"] == "Groceries"
+        assert "suggestion1" in item
+        assert "suggestion2" in item

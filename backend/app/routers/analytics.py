@@ -5,17 +5,16 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
+from app import schemas, utils
 from app.database import get_db
 from app.models import Transaction
-from app.schemas import CategoryExpenseResponse, ChartDataset, DashboardCategoryRow, ProgressionChartResponse
-from app.utils import compute_trend, get_days_in_month
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 DB = Annotated[Session, Depends(get_db)]
 
 
 @router.get("/expenses/by-category/current-month")
-def get_current_month_expenses(db: DB) -> CategoryExpenseResponse:
+def get_current_month_expenses(db: DB) -> schemas.analytics.CategoryExpenseResponse:
     """Get the current month's category-wise expenses."""
     today = datetime.now(tz=UTC).date()
 
@@ -37,18 +36,20 @@ def get_current_month_expenses(db: DB) -> CategoryExpenseResponse:
 
     total_expense = sum(float(r.total_amount or 0) for r in cat_rows)
     categories = [
-        DashboardCategoryRow(category=r.category or "Uncategorized", total_amount=float(r.total_amount or 0))
+        schemas.analytics.DashboardCategoryRow(
+            category=r.category or "Uncategorized", total_amount=float(r.total_amount or 0)
+        )
         for r in cat_rows
     ]
 
-    return CategoryExpenseResponse(
+    return schemas.analytics.CategoryExpenseResponse(
         total_expense=total_expense,
         categories=categories,
     )
 
 
 @router.get("/chart/progression/current-month")
-def get_current_month_progression(db: DB) -> ProgressionChartResponse:
+def get_current_month_progression(db: DB) -> schemas.analytics.ProgressionChartResponse:
     """Get the current month progression for the chart.
 
     Get the current month's expense progression chart along with the previous 2 months'. Also create a trend line
@@ -56,7 +57,7 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
     """
 
     def _get_month_cumulative(db: Session, year: int, month: int, today: date) -> list:
-        days_in_m = get_days_in_month(year, month)
+        days_in_m = utils.get_days_in_month(year, month)
 
         daily_rows = (
             db.query(
@@ -91,17 +92,17 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
     today = datetime.now(tz=UTC).date()
 
     current_month_data = _get_month_cumulative(db, today.year, today.month, today)
-    days_in_current = get_days_in_month(today.year, today.month)
-    trend_data = compute_trend(current_month_data, days_in_current)
+    days_in_current = utils.get_days_in_month(today.year, today.month)
+    trend_data = utils.compute_trend(current_month_data, days_in_current)
 
     datasets = [
-        ChartDataset(
+        schemas.analytics.ChartDataset(
             label=today.strftime("%B %Y"),
             data=current_month_data,
             borderColor="rgba(75, 192, 192, 1)",
             borderWidth=3,
         ),
-        ChartDataset(
+        schemas.analytics.ChartDataset(
             label="Trend (Current Month)",
             data=trend_data,
             borderColor="rgba(75, 192, 192, 0.3)",
@@ -125,7 +126,7 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
             prev_year -= 1
         m_date = date(prev_year, prev_month, 1)
         datasets.append(
-            ChartDataset(
+            schemas.analytics.ChartDataset(
                 label=m_date.strftime("%B %Y"),
                 data=_get_month_cumulative(db, prev_year, prev_month, today),
                 borderColor=colors[i - 1],
@@ -134,7 +135,7 @@ def get_current_month_progression(db: DB) -> ProgressionChartResponse:
             ),
         )
 
-    return ProgressionChartResponse(
+    return schemas.analytics.ProgressionChartResponse(
         progression_datasets=datasets,
         days=list(range(1, 32)),
     )

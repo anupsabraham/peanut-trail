@@ -1,9 +1,11 @@
+# ruff: noqa: I001
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.config import settings
+from app.models import *  # noqa:F403
 from app.database import Base
 
 # this is the Alembic Config object, which provides
@@ -44,6 +46,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -67,6 +70,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            render_as_batch=True,
         )
 
         with context.begin_transaction():

@@ -1,11 +1,11 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Query
 
+from app import schemas
 from app.models import Transaction, Vendor
-from app.schemas.filters import TransactionFilters
 
 
-def apply_transaction_filters(qs: Query, filters: TransactionFilters) -> Query:
+def apply_transaction_filters(qs: Query, filters: schemas.filters.TransactionFilters) -> Query:
     """Apply filters to a transaction query."""
     if filters.category:
         qs = qs.filter(Transaction.category.ilike(f"%{filters.category}%"))
