@@ -25,6 +25,7 @@ def list_transactions(db: DB, filters: Filters) -> schemas.transactions.Transact
     qs = (
         db.query(Transaction)
         .options(joinedload(Transaction.vendor), joinedload(Transaction.children))
+        .filter(Transaction.parent_transaction_id.is_(None))
         .order_by(Transaction.actual_date.desc())
     )
     qs = services.transactions.apply_transaction_filters(qs, filters=filters)
@@ -178,6 +179,8 @@ def split_transaction(
         utils.validate_transaction(child)
 
         db.add(child)
+
+    txn.exclude = True
 
     db.commit()
     db.refresh(txn)

@@ -67,6 +67,17 @@ class TestListTransactions:
         assert "suggestion1" in item
         assert "suggestion2" in item
 
+    def test_list_transaction_excludes_child_transactions(self, client: TestClient, db: Session) -> None:
+        parent = make_transaction(db, txn_number="TEST001")
+
+        make_transaction(db, txn_number="TEST001_split1", parent_transaction_id=parent.id)
+        make_transaction(db, txn_number="TEST001_split2", parent_transaction_id=parent.id)
+        db.flush()
+
+        resp = client.get("/api/transactions")
+        assert len(resp.json()["items"]) == 1
+        assert resp.json()["items"][0]["txn_number"] == "TEST001"
+
 
 class TestFilterByCategory:
     def test_category_filter_returns_matching(self, client: TestClient, db: Session) -> None:
@@ -512,7 +523,7 @@ class TestSplitTransaction:
 
         assert resp.status_code == 400
 
-    def test_parent_transaction_is_preserved(self, client: TestClient, db: Session) -> None:
+    def test_parent_transaction_is_preserved_and_excluded(self, client: TestClient, db: Session) -> None:
         txn = make_transaction(db, txn_number="TEST007", debit_amount=1000)
 
         payload = {
@@ -537,6 +548,7 @@ class TestSplitTransaction:
         assert parent is not None
         assert parent.txn_number == "TEST007"
         assert parent.debit_amount == 1000
+        assert parent.exclude is True
 
     def test_split_transaction_with_zero_amount_returns_400(self, client: TestClient, db: Session) -> None:
         txn = make_transaction(db, txn_number="TEST008", debit_amount=1000)
