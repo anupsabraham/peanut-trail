@@ -24,6 +24,7 @@ export interface Transaction {
     exclude: boolean
     suggestion1: Suggestion
     suggestion2: Suggestion
+    child_count: number
 }
 
 export interface PaginatedTransactions {
@@ -75,3 +76,6 @@ export const updateTransaction = (id: number, payload: TransactionUpdate) =>
 
 export const splitTransaction = (id: number, payload: SplitTransactionRequest) =>
     client.post(`/api/transactions/${id}/split`, payload).then(r => r.data)
+
+export const getChildTransactions = (id: number) =>
+    client.get(`/api/transactions/${id}/children`).then(r => r.data)
