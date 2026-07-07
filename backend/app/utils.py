@@ -1,9 +1,11 @@
 import calendar
 import math
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.interfaces import ORMOption
 
 from app import schemas
 from app.config import settings
@@ -167,3 +169,47 @@ def validate_transaction(txn: Transaction) -> None:
 def generate_split_txn_number(parent: Transaction, index: int) -> str:
     """Generate a transaction number with the original number and index of the split transaction."""
     return f"{parent.txn_number}_split{index}"
+
+
+def get_txn_object_by_id(db: Session, transaction_id: int, *options: ORMOption) -> Transaction:
+    """Get transaction by id."""
+    query = db.query(Transaction)
+    if options:
+        query = query.options(*options)
+    txn = query.filter(Transaction.id == transaction_id).first()
+
+    if txn is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"No transaction with id {transaction_id} found."
+        )
+
+    return txn
+
+
+def create_split_children(
+    db: Session, txn: Transaction, splits: list[schemas.transactions.TransactionSplitItem]
+) -> None:
+    """Create split children based on the split send in the request."""
+    for index, split in enumerate(splits, start=1):
+        if split.debit_amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction amount should be greater than 0"
+            )
+        child = Transaction(
+            debit_date=txn.debit_date,
+            actual_date=txn.actual_date,
+            narration=txn.narration,
+            txn_number=generate_split_txn_number(txn, index),
+            debit_amount=split.debit_amount,
+            credit_amount=Decimal("0.00"),
+            vendor_id=txn.vendor_id,
+            category=split.category,
+            sub_category=split.sub_category,
+            notes=split.notes,
+            exclude=split.exclude,
+            parent=txn,
+        )
+
+        validate_transaction(child)
+
+        db.add(child)
