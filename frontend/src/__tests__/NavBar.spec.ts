@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {mount, RouterLinkStub} from '@vue/test-utils'
-import NavBar from '@/components/NavBar.vue'
+import NavBar from '@/components/common/NavBar.vue'
 
 function mountNavBar() {
     return mount(NavBar, {

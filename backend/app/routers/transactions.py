@@ -156,6 +156,10 @@ def split_transaction(
         )
 
     for index, split in enumerate(request.splits, start=1):
+        if split.debit_amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Transaction amount should be greater than 0"
+            )
         child = Transaction(
             debit_date=txn.debit_date,
             actual_date=txn.actual_date,

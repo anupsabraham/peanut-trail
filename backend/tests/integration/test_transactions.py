@@ -514,7 +514,6 @@ class TestSplitTransaction:
 
     def test_parent_transaction_is_preserved(self, client: TestClient, db: Session) -> None:
         txn = make_transaction(db, txn_number="TEST007", debit_amount=1000)
-        parent = db.query(Transaction).filter(Transaction.txn_number == "TEST007").first()
 
         payload = {
             "splits": [
@@ -538,6 +537,28 @@ class TestSplitTransaction:
         assert parent is not None
         assert parent.txn_number == "TEST007"
         assert parent.debit_amount == 1000
+
+    def test_split_transaction_with_zero_amount_returns_400(self, client: TestClient, db: Session) -> None:
+        txn = make_transaction(db, txn_number="TEST008", debit_amount=1000)
+
+        payload = {
+            "splits": [
+                {
+                    "debit_amount": 1000,
+                    "category": "Accessories",
+                    "sub_category": "Electronics",
+                },
+                {
+                    "debit_amount": 0,
+                    "category": "Fashion",
+                    "sub_category": "Clothing",
+                },
+            ]
+        }
+
+        resp = client.post(f"/api/transactions/{txn.id}/split", json=payload)
+
+        assert resp.status_code == 400
 
 
 class TestGetSplitTransactions:

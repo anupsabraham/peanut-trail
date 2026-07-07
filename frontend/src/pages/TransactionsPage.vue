@@ -2,6 +2,7 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {watchDebounced} from '@vueuse/core'
 import {deleteTransaction, getTransactions, type Transaction, updateTransaction} from '@/api/transactions'
+import SplitTransactionDialog from '@/components/transactions/SplitTransactionDialog.vue'
 
 const items = ref<Transaction[]>([])
 const total = ref(0)
@@ -19,6 +20,7 @@ const filterMaxAmount = ref<number | undefined>(undefined)
 const filterExclude = ref('')
 
 const txnToDelete = ref<Transaction | null>(null)
+const txnToSplit = ref<Transaction | null>(null)
 
 const categories = computed(() =>
     [...new Set(items.value.map((t) => t.category).filter(Boolean))].sort(),
@@ -72,6 +74,10 @@ function confirmDelete(txn: Transaction) {
   txnToDelete.value = txn
 }
 
+function split(txn: Transaction) {
+  txnToSplit.value = txn
+}
+
 async function deleteConfirmed() {
   if (!txnToDelete.value) return
 
@@ -81,6 +87,11 @@ async function deleteConfirmed() {
     txnToDelete.value = null
     await load()
   }
+}
+
+async function splitCompleted() {
+  txnToSplit.value = null
+  await load()
 }
 
 async function save(txn: Transaction) {
@@ -317,6 +328,11 @@ onMounted(() => {
               >
                 Save
               </button>
+              <button @click="split(txn)"
+                      class="text-xs bg-orange-400 hover:bg-orange-300 text-white rounded px-2 py-1 transition-colors"
+              >
+                Split
+              </button>
               <button @click="confirmDelete(txn)"
                       class="text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded px-2 py-1 transition-colors"
               >
@@ -405,4 +421,12 @@ onMounted(() => {
       </div>
     </div>
   </Teleport>
+  <SplitTransactionDialog
+      v-if="txnToSplit"
+      :transaction="txnToSplit"
+      :categories="categories"
+      :subcategories="subcategories"
+      @close="txnToSplit = null"
+      @saved="splitCompleted"
+  />
 </template>

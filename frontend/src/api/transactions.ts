@@ -45,6 +45,15 @@ export interface TransactionUpdate {
     exclude?: boolean
 }
 
+export interface SplitTransactionRequest {
+    splits: {
+        debit_amount: number
+        category: string
+        sub_category: string
+        notes: string
+    }[]
+}
+
 export const getTransactions = (params: {
     page?: number
     page_size?: number
@@ -58,8 +67,11 @@ export const getTransactions = (params: {
     exclude_filter?: string
 }) => client.get<PaginatedTransactions>('/api/transactions', {params}).then((r) => r.data)
 
-export const deleteTransaction = (id: Number) =>
+export const deleteTransaction = (id: number) =>
     client.delete(`/api/transactions/${id}`)
 
-export const updateTransaction = (id: Number, payload: TransactionUpdate) =>
+export const updateTransaction = (id: number, payload: TransactionUpdate) =>
     client.patch(`/api/transactions/${id}`, payload).then(r => r.data)
+
+export const splitTransaction = (id: number, payload: SplitTransactionRequest) =>
+    client.post(`/api/transactions/${id}/split`, payload).then(r => r.data)
