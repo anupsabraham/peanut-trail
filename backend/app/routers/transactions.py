@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -45,38 +45,48 @@ def list_transactions(db: DB, filters: Filters) -> schemas.transactions.Transact
     )
 
 
-@router.get("/meta/categories/list")
-def get_categories(db: DB) -> list[str]:
-    """Return all the categories saved in db."""
-    rows = (
-        db.query(Transaction.category, func.sum(Transaction.debit_amount).label("total"))
+@router.get("/categories")
+def get_categories(db: DB) -> schemas.transactions.CategoryListResponse:
+    """Get existing categories and subcategories list."""
+    category_rows = (
+        db.query(
+            Transaction.category,
+            func.sum(Transaction.debit_amount).label("total"),
+        )
         .filter(Transaction.category != "")
         .filter(Transaction.exclude == False)  # noqa: E712
         .group_by(Transaction.category)
-        .order_by(func.sum(Transaction.debit_amount).desc())
+        .order_by(
+            func.sum(Transaction.debit_amount).desc(),
+        )
         .all()
     )
 
-    return [r[0] for r in rows]
-
-
-@router.get("/meta/subcategories/list")
-def get_subcategories(db: DB, category: Annotated[str, Query()] = "") -> list[str]:
-    """Return all the subcategories, optionally filtered by category."""
-    qs = (
-        db.query(Transaction.sub_category, func.sum(Transaction.debit_amount).label("total"))
+    subcategory_rows = (
+        db.query(Transaction.category, Transaction.sub_category, func.sum(Transaction.debit_amount).label("total"))
         .filter(Transaction.sub_category != "")
         .filter(Transaction.exclude == False)  # noqa: E712
-    )
-    if category:
-        qs = qs.filter(Transaction.category == category)
-
-    rows = (
-        qs.group_by(Transaction.category, Transaction.sub_category)
-        .order_by(func.sum(Transaction.debit_amount).desc())
+        .group_by(Transaction.category, Transaction.sub_category)
+        .order_by(Transaction.category, func.sum(Transaction.debit_amount).desc())
         .all()
     )
-    return [r[0] for r in rows]
+
+    subcategories_by_category: dict[str, list[schemas.transactions.SubCategoryOut]] = {}
+
+    for category, sub_category, _ in subcategory_rows:
+        subcategories_by_category.setdefault(category, []).append(
+            schemas.transactions.SubCategoryOut(name=sub_category)
+        )
+
+    return schemas.transactions.CategoryListResponse(
+        categories=[
+            schemas.transactions.CategoryOut(
+                name=category,
+                subcategories=subcategories_by_category.get(category, []),
+            )
+            for category, _ in category_rows
+        ]
+    )
 
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)

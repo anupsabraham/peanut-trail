@@ -70,3 +70,16 @@ class TransactionSplitItem(BaseModel):
 
 class TransactionSplitRequest(BaseModel):
     splits: list[TransactionSplitItem]
+
+
+class SubCategoryOut(BaseModel):
+    name: str
+
+
+class CategoryOut(BaseModel):
+    name: str
+    subcategories: list[SubCategoryOut]
+
+
+class CategoryListResponse(BaseModel):
+    categories: list[CategoryOut]

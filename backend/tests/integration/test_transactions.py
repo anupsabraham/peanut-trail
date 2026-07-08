@@ -240,45 +240,59 @@ class TestSearchFilter:
         assert resp.json()["total"] == 1
 
 
-class TestMetaEndpoints:
-    def test_categories_list_returns_categories(self, client: TestClient, db: Session) -> None:
-        make_transaction(db, category="Food", sub_category="Groceries", txn_number="META001")
-        make_transaction(db, category="Transport", sub_category="Fuel", txn_number="META002")
+class TestGetCategories:
+    def test_returns_categories_and_subcategories(self, client: TestClient, db: Session) -> None:
+        make_transaction(db, category="Food", sub_category="Groceries", txn_number="CAT001", debit_amount=100)
+        make_transaction(db, category="Transport", sub_category="Fuel", txn_number="CAT002", debit_amount=50)
         db.flush()
 
-        resp = client.get("/api/transactions/meta/categories/list")
+        resp = client.get("/api/transactions/categories")
         assert resp.status_code == 200
-        cats = resp.json()
-        assert "Food" in cats
-        assert "Transport" in cats
+        data = resp.json()
+        assert data == {
+            "categories": [
+                {
+                    "name": "Food",
+                    "subcategories": [
+                        {"name": "Groceries"},
+                    ],
+                },
+                {
+                    "name": "Transport",
+                    "subcategories": [
+                        {"name": "Fuel"},
+                    ],
+                },
+            ]
+        }
 
-    def test_categories_excludes_excluded_transactions(self, client: TestClient, db: Session) -> None:
-        make_transaction(db, category="HiddenCat", sub_category="X", exclude=True, txn_number="METAEX001")
+    def test_excludes_excluded_transactions(self, client: TestClient, db: Session) -> None:
+        make_transaction(db, category="HiddenCat", sub_category="X", exclude=True, txn_number="CATEX001")
         db.flush()
 
-        resp = client.get("/api/transactions/meta/categories/list")
-        assert "HiddenCat" not in resp.json()
+        resp = client.get("/api/transactions/categories")
+        assert resp.json() == {"categories": []}
 
-    def test_subcategories_list_all(self, client: TestClient, db: Session) -> None:
-        make_transaction(db, category="Food", sub_category="Groceries", txn_number="MSUB001")
-        make_transaction(db, category="Food", sub_category="Dining", txn_number="MSUB002")
+    def test_orders_categories_by_total_amount(self, client: TestClient, db: Session) -> None:
+        make_transaction(db, category="Food", sub_category="Groceries", debit_amount=100, txn_number="CAT001")
+        make_transaction(db, category="Transport", sub_category="Fuel", debit_amount=200, txn_number="CAT002")
+        make_transaction(db, category="Food", sub_category="Groceries", debit_amount=300, txn_number="CAT003")
         db.flush()
 
-        resp = client.get("/api/transactions/meta/subcategories/list")
-        assert resp.status_code == 200
-        subs = resp.json()
-        assert "Groceries" in subs
-        assert "Dining" in subs
+        resp = client.get("/api/transactions/categories")
+        categories = resp.json()["categories"]
 
-    def test_subcategories_filtered_by_category(self, client: TestClient, db: Session) -> None:
-        make_transaction(db, category="Food", sub_category="Groceries", txn_number="MSUBC001")
-        make_transaction(db, category="Transport", sub_category="Fuel", txn_number="MSUBC002")
+        assert categories[0]["name"] == "Food"
+        assert categories[1]["name"] == "Transport"
+
+    def test_orders_subcategories_by_total_amount(self, client: TestClient, db: Session) -> None:
+        make_transaction(db, category="Food", sub_category="Groceries", debit_amount=200, txn_number="CAT001")
+        make_transaction(db, category="Food", sub_category="Dining", debit_amount=800, txn_number="CAT002")
+        make_transaction(db, category="Food", sub_category="Groceries", debit_amount=500, txn_number="CAT003")
         db.flush()
-
-        resp = client.get("/api/transactions/meta/subcategories/list?category=Food")
-        subs = resp.json()
-        assert "Groceries" in subs
-        assert "Fuel" not in subs
+        resp = client.get("/api/transactions/categories")
+        subcategories = resp.json()["categories"][0]["subcategories"]
+        assert subcategories == [{"name": "Dining"}, {"name": "Groceries"}]
 
 
 class TestHealthCheck:
@@ -644,11 +658,9 @@ class TestSplitTransaction:
             ]
         }
 
-        r = client.post(f"/api/transactions/{txn.id}/split", json=payload)
-        print(r.text)
+        client.post(f"/api/transactions/{txn.id}/split", json=payload)
 
         resp = client.post(f"/api/transactions/{txn.id}/split", json={"splits": []})
-        print(resp.text)
         assert resp.status_code == 200
         children = (
             db.query(Transaction).filter(Transaction.parent_transaction_id == txn.id).order_by(Transaction.id).all()
