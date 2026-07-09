@@ -7,6 +7,7 @@ import {
   type Transaction,
   updateTransaction
 } from '@/api/transactions'
+import SearchableSelect from "@/components/common/SearchableSelect.vue";
 
 
 interface SplitRow {
@@ -252,22 +253,14 @@ function amountChanged(index: number) {
                 <label class="mb-1 block text-xs font-medium text-gray-500">
                   Category
                 </label>
-
-                <select
+                <SearchableSelect
                     v-model="parent.category"
-                    class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-                >
-                  <option value="">—</option>
-
-                  <option
-                      v-for="c in categories"
-                      :key="c"
-                      :value="c"
-                  >
-                    {{ c }}
-                  </option>
-
-                </select>
+                    :options="categories"
+                    @update:modelValue="value => {
+                      parent.category = value
+                      parent.sub_category = ''
+                    }"
+                />
               </div>
 
               <!-- Subcategory -->
@@ -275,22 +268,9 @@ function amountChanged(index: number) {
                 <label class="mb-1 block text-xs font-medium text-gray-500">
                   Subcategory
                 </label>
-
-                <select
+                <SearchableSelect
                     v-model="parent.sub_category"
-                    class="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-                >
-                  <option value="">—</option>
-
-                  <option
-                      v-for="s in getSubCategories(parent.category)"
-                      :key="s"
-                      :value="s"
-                  >
-                    {{ s }}
-                  </option>
-
-                </select>
+                    :options="getSubCategories(parent.category)"/>
               </div>
 
               <!-- Notes -->
@@ -348,7 +328,7 @@ function amountChanged(index: number) {
           </div>
 
           <!-- Same table style as Transactions page -->
-          <div class="overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
+          <div class="rounded-2xl border border-gray-100 shadow-sm">
 
             <table class="w-full text-sm">
 
@@ -431,42 +411,23 @@ function amountChanged(index: number) {
                 </td>
 
                 <td class="px-3 py-2">
-
-                  <select
+                  <SearchableSelect
                       v-model="row.category"
-                      class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-                  >
-                    <option value="">—</option>
-
-                    <option
-                        v-for="c in categories"
-                        :key="c"
-                        :value="c"
-                    >
-                      {{ c }}
-                    </option>
-
-                  </select>
+                      :options="categories"
+                      @update:modelValue="value => {
+                      row.category = value
+                      row.sub_category = ''
+                    }"
+                  />
 
                 </td>
 
                 <td class="px-3 py-2">
 
-                  <select
+                  <SearchableSelect
                       v-model="row.sub_category"
-                      class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-                  >
-                    <option value="">—</option>
-
-                    <option
-                        v-for="s in getSubCategories(row.category)"
-                        :key="s"
-                        :value="s"
-                    >
-                      {{ s }}
-                    </option>
-
-                  </select>
+                      :options="getSubCategories(row.category)"
+                  />
 
                 </td>
 

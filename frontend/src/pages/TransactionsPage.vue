@@ -12,6 +12,7 @@ import {
 } from '@/api/transactions'
 import SplitTransactionDialog from '@/components/transactions/SplitTransactionDialog.vue'
 import DeleteTransactionDialog from "@/components/transactions/DeleteTransactionDialog.vue";
+import SearchableSelect from "@/components/common/SearchableSelect.vue";
 
 const items = ref<Transaction[]>([])
 const total = ref(0)
@@ -145,7 +146,7 @@ async function loadCategories() {
   categoryData.value = response.categories
 }
 
-function getSubcategories(category: string): string[] {
+function getSubCategories(category: string): string[] {
   return (
       categoryData.value.find(c => c.name === category)?.subcategories.map(s => s.name) ?? []
   )
@@ -180,13 +181,13 @@ onMounted(() => {
           placeholder="Search ..."
           class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-gray-300"
       />
-      <select
+      <SearchableSelect
           v-model="filterCategory"
-          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-      >
-        <option value="">All Categories</option>
-        <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-      </select>
+          :options="categories"
+          placeholder="All Categories"
+          :allow-empty="true"
+          input-class="rounded-lg px-3 py-2 text-sm"
+      />
       <input
           v-model="filterVendor"
           placeholder="Vendor..."
@@ -314,25 +315,23 @@ onMounted(() => {
             <td :class="['px-3 py-2 text-gray-500 text-xs', txn.exclude ? 'opacity-50' : '']">{{ txn.vendor_name }}</td>
 
             <!-- Category -->
-            <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
-              <select
+            <td :class="['px-3 py-2', txn.exclude ? 'text-gray-400' : '']">
+              <SearchableSelect
                   v-model="getEdit(txn).category"
-                  class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-              >
-                <option value="">—</option>
-                <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-              </select>
+                  :options="categories"
+                  @update:modelValue="value => {
+                    getEdit(txn).category = value
+                    getEdit(txn).sub_category = ''
+                  }"
+              />
             </td>
 
             <!-- Subcategory -->
-            <td :class="['px-3 py-2', txn.exclude ? 'opacity-50' : '']">
-              <select
+            <td :class="['px-3 py-2', txn.exclude ? 'text-gray-400' : '']">
+              <SearchableSelect
                   v-model="getEdit(txn).sub_category"
-                  class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
-              >
-                <option value="">—</option>
-                <option v-for="s in getSubcategories(getEdit(txn).category)" :key="s" :value="s">{{ s }}</option>
-              </select>
+                  :options="getSubCategories(getEdit(txn).category)"
+              />
             </td>
 
             <!-- Notes -->
