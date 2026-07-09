@@ -2,7 +2,9 @@
 import {computed, onMounted, ref, watch} from 'vue'
 import {watchDebounced} from '@vueuse/core'
 import {
+  type Category,
   deleteTransaction,
+  getCategories,
   getChildTransactions,
   getTransactions,
   type Transaction,
@@ -32,17 +34,16 @@ const childTransactions = ref<Record<number, Transaction[]>>({})
 const txnToDelete = ref<Transaction | null>(null)
 const txnToSplit = ref<Transaction | null>(null)
 
-const categories = computed(() =>
-    [...new Set(items.value.map((t) => t.category).filter(Boolean))].sort(),
-)
+const categoryData = ref<Category[]>([])
 
-const subcategories = computed(() =>
-    [...new Set(items.value.map((t) => t.sub_category).filter(Boolean))].sort(),
-)
 // Track per-row edits
 const edits = ref<Record<number, Partial<Transaction>>>({})
 
 const loading = ref(false)
+
+const categories = computed(() =>
+    categoryData.value.map(c => c.name)
+)
 
 async function load() {
   loading.value = true
@@ -139,6 +140,17 @@ async function toggleChildren(txn: Transaction) {
   }
 }
 
+async function loadCategories() {
+  const response = await getCategories()
+  categoryData.value = response.categories
+}
+
+function getSubcategories(category: string): string[] {
+  return (
+      categoryData.value.find(c => c.name === category)?.subcategories.map(s => s.name) ?? []
+  )
+}
+
 watchDebounced(
     [search, filterVendor, filterMinAmount, filterMaxAmount],
     () => {
@@ -155,6 +167,7 @@ watch(page, load)
 
 onMounted(() => {
   load()
+  loadCategories()
 })
 </script>
 
@@ -318,7 +331,7 @@ onMounted(() => {
                   class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-gray-300"
               >
                 <option value="">—</option>
-                <option v-for="s in subcategories" :key="s" :value="s">{{ s }}</option>
+                <option v-for="s in getSubcategories(getEdit(txn).category)" :key="s" :value="s">{{ s }}</option>
               </select>
             </td>
 
@@ -482,8 +495,7 @@ onMounted(() => {
   <SplitTransactionDialog
       v-if="txnToSplit"
       :transaction="txnToSplit"
-      :categories="categories"
-      :subcategories="subcategories"
+      :categories="categoryData"
       @close="txnToSplit = null"
       @saved="splitCompleted"
   />

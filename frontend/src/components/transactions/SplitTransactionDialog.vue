@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {getChildTransactions, splitTransaction, type Transaction, updateTransaction} from '@/api/transactions'
+import {
+  type Category,
+  getChildTransactions,
+  splitTransaction,
+  type Transaction,
+  updateTransaction
+} from '@/api/transactions'
 
 
 interface SplitRow {
@@ -12,8 +18,7 @@ interface SplitRow {
 
 const props = defineProps<{
   transaction: Transaction
-  categories: string[]
-  subcategories: string[]
+  categories: Category[]
 }>()
 
 const parent = ref({
@@ -67,8 +72,23 @@ const canSave = computed(() =>
             r.debit_amount > 0 &&
             r.category &&
             r.sub_category
-        )) || (rows.value.length === 0 && parent.value.category && parent.value.sub_category),
+        )
+    ) ||
+    (rows.value.length === 0 &&
+        parent.value.category &&
+        parent.value.sub_category),
 )
+
+const categories = computed(() =>
+    props.categories.map(c => c.name)
+)
+
+function getSubCategories(category: string): string[] {
+  return (
+      props.categories.find(c => c.name === category)
+          ?.subcategories.map(s => s.name) ?? []
+  )
+}
 
 onMounted(async () => {
   const children = await getChildTransactions(props.transaction.id)
@@ -263,7 +283,7 @@ function amountChanged(index: number) {
                   <option value="">—</option>
 
                   <option
-                      v-for="s in subcategories"
+                      v-for="s in getSubCategories(parent.category)"
                       :key="s"
                       :value="s"
                   >
@@ -439,7 +459,7 @@ function amountChanged(index: number) {
                     <option value="">—</option>
 
                     <option
-                        v-for="s in subcategories"
+                        v-for="s in getSubCategories(row.category)"
                         :key="s"
                         :value="s"
                     >
