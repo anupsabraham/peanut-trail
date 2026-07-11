@@ -69,7 +69,7 @@ async function load() {
 
 function getEdit(txn: Transaction) {
   if (!edits.value[txn.id]) edits.value[txn.id] = {...txn}
-  return edits.value[txn.id]
+  return edits.value[txn.id] as Transaction
 }
 
 function applySuggestion(txn: Transaction, s: Transaction['suggestion1']) {
@@ -173,7 +173,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-[1400px] mx-auto px-6 py-8 space-y-4">
+  <div class="max-w-350 mx-auto px-6 py-8 space-y-4">
     <!-- Filters -->
     <div class="flex gap-3 flex-wrap items-center">
       <input
@@ -353,7 +353,7 @@ onMounted(() => {
                 <button
                     v-if="txn.suggestion1?.category"
                     @click="applySuggestion(txn, txn.suggestion1)"
-                    class="text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded px-2 py-0.5 truncate max-w-[160px]"
+                    class="text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded px-2 py-0.5 truncate max-w-40"
                     :title="`${txn.suggestion1.category} / ${txn.suggestion1.sub_category}`"
                 >
                   {{ txn.suggestion1.category }} · {{ txn.suggestion1.sub_category }}
@@ -361,7 +361,7 @@ onMounted(() => {
                 <button
                     v-if="txn.suggestion2?.category"
                     @click="applySuggestion(txn, txn.suggestion2)"
-                    class="text-left text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 rounded px-2 py-0.5 truncate max-w-[160px]"
+                    class="text-left text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 rounded px-2 py-0.5 truncate max-w-40"
                     :title="`${txn.suggestion2.category} / ${txn.suggestion2.sub_category}`"
                 >
                   {{ txn.suggestion2.category }} · {{ txn.suggestion2.sub_category }}

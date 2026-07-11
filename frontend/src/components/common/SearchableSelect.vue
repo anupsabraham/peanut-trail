@@ -80,7 +80,7 @@ onBeforeUnmount(() => {
     <!-- Dropdown -->
     <div
         v-if="open"
-        class="absolute left-0 top-full z-50 mt-1 max-h-32 min-w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+        class="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
       <!-- All Categories -->
       <div
           v-if="allowEmpty"

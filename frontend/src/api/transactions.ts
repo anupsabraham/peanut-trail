@@ -87,7 +87,7 @@ export const splitTransaction = (id: number, payload: SplitTransactionRequest) =
     client.post(`/api/transactions/${id}/split`, payload).then(r => r.data)
 
 export const getChildTransactions = (id: number) =>
-    client.get(`/api/transactions/${id}/children`).then(r => r.data)
+    client.get<Transaction[]>(`/api/transactions/${id}/children`).then(r => r.data)
 
 export const getCategories = () =>
     client.get(`/api/transactions/categories`).then(r => r.data)

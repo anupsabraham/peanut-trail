@@ -152,7 +152,7 @@ function amountChanged(index: number) {
   if (index !== 0)
     return
 
-  rows.value[1].debit_amount = Math.max(0, Number(parent.value.debit_amount) - Number(rows.value[0].debit_amount))
+  rows.value[1]!.debit_amount = Math.max(0, Number(parent.value.debit_amount) - Number(rows.value[0]!.debit_amount))
 }
 
 </script>
