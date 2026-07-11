@@ -14,9 +14,17 @@ vi.mock('@vueuse/core', async () => {
 
 vi.mock('@/api/transactions', () => ({
   getTransactions: vi.fn(),
+  getCategories: vi.fn(),
+  getChildTransactions: vi.fn(),
+  deleteTransaction: vi.fn(),
+  updateTransaction: vi.fn(),
 }))
 
 const mockGetTransactions = vi.mocked(txnApi.getTransactions)
+const mockGetCategories = vi.mocked(txnApi.getCategories)
+const mockGetChildTransactions = vi.mocked(txnApi.getChildTransactions)
+const mockDeleteTransaction = vi.mocked(txnApi.deleteTransaction)
+const mockUpdateTransaction = vi.mocked(txnApi.updateTransaction)
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -35,8 +43,27 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     exclude: false,
     suggestion1: { category: null, sub_category: null, notes: null, confidence: 0, auto_prefill: false },
     suggestion2: { category: null, sub_category: null, notes: null, confidence: 0, auto_prefill: false },
+    child_count: 0,
     ...overrides,
   }
+}
+
+const SearchableSelectStub = {
+  props: ['modelValue', 'options', 'placeholder'],
+  emits: ['update:modelValue'],
+  template: `<select :value="modelValue" :aria-label="placeholder || 'select'" @change="$emit('update:modelValue', $event.target.value)"><option v-for="option in options" :key="option" :value="option">{{ option }}</option></select>`,
+}
+
+function mountPage() {
+  return mount(TransactionsPage, {
+    global: {
+      stubs: {
+        SearchableSelect: SearchableSelectStub,
+        DeleteTransactionDialog: { props: ['transaction'], emits: ['close', 'deleted'], template: '<button data-testid="delete-dialog" @click="$emit(\'deleted\')" />' },
+        SplitTransactionDialog: { props: ['transaction', 'categories'], emits: ['close', 'saved'], template: '<div data-testid="split-dialog" />' },
+      },
+    },
+  })
 }
 
 function makePage(items: Transaction[] = [], total = items.length) {
@@ -47,11 +74,15 @@ describe('TransactionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetTransactions.mockResolvedValue(makePage())
+    mockGetCategories.mockResolvedValue({ categories: [{ name: 'Food', subcategories: [{ name: 'Groceries' }] }] })
+    mockGetChildTransactions.mockResolvedValue([])
+    mockDeleteTransaction.mockResolvedValue({} as any)
+    mockUpdateTransaction.mockResolvedValue({} as any)
   })
 
   describe('initial load', () => {
     it('calls getTransactions on mount', async () => {
-      mount(TransactionsPage)
+      mountPage()
       await flushPromises()
       expect(mockGetTransactions).toHaveBeenCalledOnce()
     })
@@ -59,7 +90,7 @@ describe('TransactionsPage', () => {
     it('shows a loading state while fetching', () => {
       // Don't flush — still loading
       mockGetTransactions.mockReturnValue(new Promise(() => {}))
-      mount(TransactionsPage)
+      mountPage()
       // The table body should have no rows and loading prevents rendering data
       // (no explicit loading text in template, but no items yet)
       expect(mockGetTransactions).toHaveBeenCalled()
@@ -67,20 +98,20 @@ describe('TransactionsPage', () => {
 
     it('renders table rows after data arrives', async () => {
       mockGetTransactions.mockResolvedValueOnce(makePage([makeTransaction(), makeTransaction()]))
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     })
 
     it('shows the total transaction count', async () => {
       mockGetTransactions.mockResolvedValueOnce(makePage([makeTransaction()], 42))
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       expect(wrapper.text()).toContain('42 transactions')
     })
 
     it('renders an empty table when there are no transactions', async () => {
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       expect(wrapper.findAll('tbody tr')).toHaveLength(0)
     })
@@ -88,7 +119,7 @@ describe('TransactionsPage', () => {
 
   describe('table structure', () => {
     it('renders all expected column headers', async () => {
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       const headers = wrapper.text()
       expect(headers).toContain('Debit Date')
@@ -105,14 +136,12 @@ describe('TransactionsPage', () => {
   describe('filtering', () => {
     it('reloads with category filter when category select changes', async () => {
       mockGetTransactions.mockResolvedValue(makePage([makeTransaction({ category: 'Food' })]))
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       vi.clearAllMocks()
       mockGetTransactions.mockResolvedValue(makePage())
 
-      const selects = wrapper.findAll('select')
-      // First select is the category filter
-      await selects[0].setValue('Food')
+      await wrapper.find('select[aria-label="All Categories"]').setValue('Food')
       await flushPromises()
 
       expect(mockGetTransactions).toHaveBeenCalledWith(
@@ -121,14 +150,14 @@ describe('TransactionsPage', () => {
     })
 
     it('reloads with exclude filter when exclude select changes', async () => {
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       vi.clearAllMocks()
       mockGetTransactions.mockResolvedValue(makePage())
 
       // Last select is the exclude filter
       const selects = wrapper.findAll('select')
-      await selects[selects.length - 1].setValue('true')
+      await selects[selects.length - 1]!.setValue('true')
       await flushPromises()
 
       expect(mockGetTransactions).toHaveBeenCalledWith(
@@ -137,7 +166,7 @@ describe('TransactionsPage', () => {
     })
 
     it('reloads with search term when search input changes (watchDebounced mocked as watch)', async () => {
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       vi.clearAllMocks()
       mockGetTransactions.mockResolvedValue(makePage())
@@ -153,17 +182,17 @@ describe('TransactionsPage', () => {
 
     it('resets page to 1 when a filter changes', async () => {
       mockGetTransactions.mockResolvedValue(makePage([], 100))
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
 
-      // Advance to page 2
-      const nextBtn = wrapper.find('button:not([disabled])')
-      // Instead of clicking Next, directly verify that filter change resets page
       vi.clearAllMocks()
       mockGetTransactions.mockResolvedValue(makePage())
 
-      const selects = wrapper.findAll('select')
-      await selects[selects.length - 1].setValue('false')
+      const nextBtn = wrapper.findAll('button').find((b) => b.text() === 'Next')!
+      await nextBtn.trigger('click')
+      await flushPromises()
+      vi.clearAllMocks()
+      await wrapper.find('select').setValue('Food')
       await flushPromises()
 
       expect(mockGetTransactions).toHaveBeenCalledWith(
@@ -175,14 +204,17 @@ describe('TransactionsPage', () => {
   describe('pagination', () => {
     it('shows page info', async () => {
       mockGetTransactions.mockResolvedValueOnce({ items: [], total: 100, page: 1, pages: 2 })
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
-      expect(wrapper.text()).toContain('Page 1 of 2')
+      expect(wrapper.text()).toContain('Page')
+      expect(wrapper.text()).toContain('of 2')
+      const numberInputs = wrapper.findAll('input[type="number"]')
+      expect((numberInputs[numberInputs.length - 1]!.element as HTMLInputElement).value).toBe('1')
     })
 
     it('Next button is disabled on the last page', async () => {
       mockGetTransactions.mockResolvedValueOnce({ items: [], total: 10, page: 1, pages: 1 })
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       const nextBtn = wrapper.find('button:last-of-type')
       expect(nextBtn.attributes('disabled')).toBeDefined()
@@ -190,7 +222,7 @@ describe('TransactionsPage', () => {
 
     it('Prev button is disabled on page 1', async () => {
       mockGetTransactions.mockResolvedValueOnce({ items: [], total: 10, page: 1, pages: 1 })
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       const prevBtn = wrapper.find('button:first-of-type')
       expect(prevBtn.attributes('disabled')).toBeDefined()
@@ -198,7 +230,7 @@ describe('TransactionsPage', () => {
 
     it('clicking Next loads the next page', async () => {
       mockGetTransactions.mockResolvedValue({ items: [], total: 100, page: 1, pages: 3 })
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
       vi.clearAllMocks()
       mockGetTransactions.mockResolvedValue({ items: [], total: 100, page: 2, pages: 3 })
@@ -221,7 +253,7 @@ describe('TransactionsPage', () => {
         suggestion1: { category: 'Food', sub_category: 'Dining', notes: '', confidence: 80, auto_prefill: false },
       })
       mockGetTransactions.mockResolvedValueOnce(makePage([txn]))
-      const wrapper = mount(TransactionsPage)
+      const wrapper = mountPage()
       await flushPromises()
 
       expect(wrapper.text()).toContain('Food · Dining')
@@ -245,40 +277,68 @@ describe('TransactionsPage', () => {
         sub_category: '',
         suggestion1: { category: 'Transport', sub_category: 'Fuel', notes: 'highway', confidence: 90, auto_prefill: true },
       })
-      // Include a second item so 'Transport' appears in the categories computed
-      // (category options are derived from loaded items)
-      const seeder = makeTransaction({ id: 100, category: 'Transport', sub_category: 'Fuel' })
-      mockGetTransactions.mockResolvedValueOnce(makePage([txn, seeder]))
-      const wrapper = mount(TransactionsPage)
+      mockGetCategories.mockResolvedValueOnce({ categories: [{ name: 'Transport', subcategories: [{ name: 'Fuel' }] }] })
+      mockGetTransactions.mockResolvedValueOnce(makePage([txn]))
+      const wrapper = mountPage()
       await flushPromises()
 
       const suggBtn = wrapper.find('button.text-blue-700')
       await suggBtn.trigger('click')
       await wrapper.vm.$nextTick()
 
-      // The category select for the first row (txn id=99) should now show 'Transport'
       const categorySelects = wrapper.findAll('td select')
-      expect(categorySelects[0].element.value).toBe('Transport')
+      expect((categorySelects[0]!.element as HTMLSelectElement).value).toBe('Transport')
     })
   })
 
-  describe('categories computed', () => {
-    it('populates the category filter from loaded transactions', async () => {
-      mockGetTransactions.mockResolvedValueOnce(
-        makePage([
-          makeTransaction({ category: 'Food' }),
-          makeTransaction({ category: 'Transport' }),
-          makeTransaction({ category: 'Food' }), // duplicate — should appear once
-        ]),
-      )
-      const wrapper = mount(TransactionsPage)
-      await flushPromises()
+  it('loads API categories for the category controls', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(mockGetCategories).toHaveBeenCalledOnce()
+    expect(wrapper.find('select[aria-label="All Categories"]').text()).toContain('Food')
+  })
 
-      // Category select options (first select is the filter select)
-      const categorySelect = wrapper.findAll('select')[0]
-      const options = categorySelect.findAll('option').map((o) => o.text())
-      expect(options.filter((o) => o === 'Food')).toHaveLength(1)
-      expect(options).toContain('Transport')
-    })
+  it('saves edited transaction data and reloads the list', async () => {
+    const transaction = makeTransaction({ id: 20 })
+    mockGetTransactions.mockResolvedValue(makePage([transaction]))
+    const wrapper = mountPage()
+    await flushPromises()
+    vi.clearAllMocks()
+    const narration = wrapper.findAll('tbody tr')[0]!.findAll('input')[2]!
+    await narration.setValue('Changed narration')
+    await wrapper.findAll('button').find((button) => button.text() === 'Save')!.trigger('click')
+    await flushPromises()
+    expect(mockUpdateTransaction).toHaveBeenCalledWith(20, expect.objectContaining({ narration: 'Changed narration' }))
+    expect(mockGetTransactions).toHaveBeenCalledOnce()
+  })
+
+  it('loads child rows once and toggles their visibility', async () => {
+    const parent = makeTransaction({ id: 20, child_count: 1 })
+    const child = makeTransaction({ id: 21, narration: 'Child split' })
+    mockGetTransactions.mockResolvedValue(makePage([parent]))
+    mockGetChildTransactions.mockResolvedValue([child])
+    const wrapper = mountPage()
+    await flushPromises()
+    const toggle = wrapper.findAll('button').find((button) => button.text() === '▶')!
+    await toggle.trigger('click')
+    await flushPromises()
+    expect(mockGetChildTransactions).toHaveBeenCalledWith(20)
+    expect(wrapper.text()).toContain('Child split')
+    await toggle.trigger('click')
+    await toggle.trigger('click')
+    await flushPromises()
+    expect(mockGetChildTransactions).toHaveBeenCalledOnce()
+  })
+
+  it('deletes a transaction after the confirmation dialog emits deleted', async () => {
+    const transaction = makeTransaction({ id: 20 })
+    mockGetTransactions.mockResolvedValue(makePage([transaction]))
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'Delete')!.trigger('click')
+    await wrapper.find('[data-testid="delete-dialog"]').trigger('click')
+    await flushPromises()
+    expect(mockDeleteTransaction).toHaveBeenCalledWith(20)
+    expect(mockGetTransactions).toHaveBeenCalledTimes(2)
   })
 })
