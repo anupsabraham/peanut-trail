@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app import schemas, services, utils
@@ -12,6 +13,72 @@ router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
 
 DB = Annotated[Session, Depends(get_db)]
 Filters = Annotated[schemas.filters.TransactionFilters, Depends()]
+
+
+@router.post("")
+def create_transaction(
+    payload: schemas.transactions.TransactionImportCreate, db: DB
+) -> schemas.transactions.TransactionOut:
+    """Save one reviewed transaction from a statement preview."""
+    try:
+        txn = services.transactions.create_import_transaction(db, payload)
+        db.commit()
+        db.refresh(txn)
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A transaction with this transaction number already exists.",
+        ) from error
+    return utils.get_transaction_out_obj(db, txn)
+
+
+@router.post("/bulk")
+def create_transactions_bulk(
+    request: schemas.transactions.TransactionBulkCreateRequest, db: DB
+) -> schemas.transactions.TransactionBulkCreateResponse:
+    """Atomically save all selected and reviewed statement-preview rows."""
+    transaction_numbers = [transaction.txn_number for transaction in request.transactions]
+    duplicate_numbers = {number for number in transaction_numbers if transaction_numbers.count(number) > 1}
+    if duplicate_numbers:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Duplicate transaction number in request: {sorted(duplicate_numbers)[0]}.",
+        )
+
+    existing_numbers = {
+        number
+        for (number,) in db.query(Transaction.txn_number).filter(Transaction.txn_number.in_(transaction_numbers)).all()
+    }
+    if existing_numbers:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Transaction already exists: {sorted(existing_numbers)[0]}.",
+        )
+
+    try:
+        transactions = [
+            services.transactions.create_import_transaction(db, transaction) for transaction in request.transactions
+        ]
+        db.commit()
+        for transaction in transactions:
+            db.refresh(transaction)
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="One or more transactions already exist.",
+        ) from error
+
+    return schemas.transactions.TransactionBulkCreateResponse(
+        items=[utils.get_transaction_out_obj(db, transaction) for transaction in transactions]
+    )
 
 
 @router.get("")

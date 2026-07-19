@@ -1,8 +1,52 @@
-from sqlalchemy import or_
-from sqlalchemy.orm import Query
+from decimal import Decimal
 
-from app import schemas
+from fastapi import HTTPException, status
+from sqlalchemy import or_
+from sqlalchemy.orm import Query, Session
+
+from app import schemas, utils
 from app.models import Transaction, Vendor
+
+
+def create_import_transaction(db: Session, payload: schemas.transactions.TransactionImportCreate) -> Transaction:
+    """Create one reviewed preview transaction and any requested split children.
+
+    The caller controls the database transaction, allowing a bulk save to remain
+    all-or-nothing.
+    """
+    _validate_import_splits(payload)
+    transaction_data = payload.model_dump(exclude={"splits"})
+    if payload.splits:
+        transaction_data["exclude"] = True
+
+    txn = Transaction(**transaction_data)
+    utils.validate_transaction(txn)
+    db.add(txn)
+    db.flush()
+
+    if payload.splits:
+        utils.create_split_children(db, txn, payload.splits)
+    return txn
+
+
+def _validate_import_splits(payload: schemas.transactions.TransactionImportCreate) -> None:
+    if not payload.splits:
+        return
+    if payload.credit_amount > Decimal(0):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credit transactions cannot be split.")
+    if len(payload.splits) == 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transaction must be split into at least 2 parts.",
+        )
+
+    total = sum((split.debit_amount for split in payload.splits), start=Decimal(0))
+    if total != payload.debit_amount:
+        if total > payload.debit_amount:
+            message = f"Total amount({total}) exceeds transaction amount({payload.debit_amount})"
+        else:
+            message = f"Total amount({total}) is lesser than transaction amount({payload.debit_amount})"
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
 
 def apply_transaction_filters(qs: Query, filters: schemas.filters.TransactionFilters) -> Query:

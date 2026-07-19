@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Protocol
 
 
 class Bank(StrEnum):
@@ -64,10 +63,3 @@ class ParseResult:
 
     transactions: list[ParsedTransaction] = field(default_factory=list)
     issues: list[ParseIssue] = field(default_factory=list)
-
-
-class StatementParser(Protocol):
-    """Contract implemented by every statement parser."""
-
-    def parse(self, file_content: bytes) -> ParseResult:
-        """Parse statement content without writing to the database."""

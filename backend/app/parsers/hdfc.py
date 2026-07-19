@@ -7,18 +7,18 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import ClassVar
 
+from app.parsers.resolver import StatementParser
 from app.parsers.types import (
     FileType,
     ParsedTransaction,
     ParseIssue,
     ParseResult,
-    StatementParser,
     StatementType,
     UnsupportedStatementError,
 )
 
 
-class HDFCSavingsCsvParser:
+class HDFCSavingsCsvParser(StatementParser):
     """Parse HDFC savings-account CSV statements."""
 
     _COLUMN_ALIASES: ClassVar[dict[str, tuple[str, ...]]] = {
@@ -116,9 +116,7 @@ class HDFCSavingsCsvParser:
         columns: dict[str, int],
     ) -> None:
         raw_values = tuple(row)
-        repaired_row, was_repaired = self._repair_unquoted_narration_commas(
-            row, len(header), columns["narration"]
-        )
+        repaired_row, was_repaired = self._repair_unquoted_narration_commas(row, len(header), columns["narration"])
         if repaired_row is None:
             result.issues.append(
                 ParseIssue(

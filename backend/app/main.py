@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import analytics, transactions
+from app.routers import analytics, statements, transactions
 
 app = FastAPI(title="FinancePlan API")
 
@@ -22,4 +22,5 @@ def health() -> dict[str, str]:
 
 
 app.include_router(analytics.router)
+app.include_router(statements.router)
 app.include_router(transactions.router)

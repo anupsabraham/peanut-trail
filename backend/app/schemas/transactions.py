@@ -72,6 +72,22 @@ class TransactionSplitRequest(BaseModel):
     splits: list[TransactionSplitItem]
 
 
+class TransactionImportCreate(TransactionCreate):
+    """A reviewed preview transaction, optionally including its splits."""
+
+    splits: list[TransactionSplitItem] = []
+
+
+class TransactionBulkCreateRequest(BaseModel):
+    """Transactions selected from one statement preview to save together."""
+
+    transactions: list[TransactionImportCreate]
+
+
+class TransactionBulkCreateResponse(BaseModel):
+    items: list[TransactionOut]
+
+
 class SubCategoryOut(BaseModel):
     name: str
 

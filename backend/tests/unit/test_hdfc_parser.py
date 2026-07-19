@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from app.parsers.hdfc import HDFCSavingsCsvParser
-from app.parsers.registry import resolve_parser
+from app.parsers.resolver import resolve_parser
 from app.parsers.types import Bank, FileType, ParseResult, StatementType, UnsupportedStatementError
 
 HEADER = "Date,Narration,Chq/Ref Number,Value Dat,Debit Amount,Credit Amount,Closing Balance"
